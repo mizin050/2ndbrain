@@ -5,7 +5,14 @@ Exposes timeline, chat, and search endpoints for frontend consumption
 
 import sys
 import os
-from fastapi import FastAPI, HTTPException
+import tempfile
+import shutil
+
+# Load .env before anything else so GROQ_API_KEY and other vars are available
+from dotenv import load_dotenv
+load_dotenv()
+
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -31,6 +38,8 @@ try:
         detect_and_handle_timeline_request = ai_layer.detect_and_handle_timeline_request
         index_data = ai_layer.index_data
         extract_dates_from_text = ai_layer.extract_dates_from_text
+        query_workspace    = ai_layer.query_workspace
+        chroma_client      = ai_layer.chroma_client
     else:
         raise ImportError("Could not load ai-layer.py")
 except ImportError as e:
@@ -160,15 +169,8 @@ async def get_calendar(workspace_id: str, month: int, year: int):
     Returns: Calendar structure with events per date
     """
     try:
-        # Check if chromadb is available
-        try:
-            import chromadb
-        except ImportError:
-            # Return empty calendar if chromadb not available
+        if chroma_client is None:
             return CalendarResponse(month=month, year=year, events=[])
-        
-        DB_PATH = os.getenv("DATABASE_PATH", "./chroma_db")
-        chroma_client = chromadb.PersistentClient(path=DB_PATH)
         chroma_collection = chroma_client.get_or_create_collection(name=workspace_id)
         
         all_results = chroma_collection.get(include=["metadatas", "documents"])
@@ -207,8 +209,7 @@ async def get_calendar(workspace_id: str, month: int, year: int):
         return CalendarResponse(month=month, year=year, events=events)
         
     except Exception as e:
-        # Return empty calendar on any error
-        return CalendarResponse(month=month, year=year, events=[])
+        raise HTTPException(status_code=500, detail=f"Calendar error: {str(e)}")
 
 # =====================================================================
 # 5. CHAT ENDPOINTS
@@ -242,17 +243,15 @@ async def chat(request: ChatRequest):
                 timeline_data=timeline_data
             )
         
-        # Otherwise, use regular chat engine
-        chat_engine = get_dynamic_chat_engine(
+        # Direct Groq SDK via query_workspace — no LlamaIndex HTTP wrapper
+        answer = query_workspace(
             request.workspace_id,
+            request.message,
             request.app_identity,
             request.custom_rules
         )
-        
-        response = chat_engine.chat(request.message)
-        
         return ChatResponse(
-            response=str(response),
+            response=answer,
             is_timeline_request=False,
             timeline_data=None
         )
@@ -261,34 +260,18 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 # =====================================================================
-# 6. DATA INGESTION ENDPOINT
+# 6. DATA INGESTION ENDPOINT (pre-extracted text)
 # =====================================================================
 
 @app.post("/api/index")
 async def index_document(request: IndexRequest):
     """
-    Index new data into the workspace.
-    
-    Body:
-    - workspace_id: Target workspace
-    - text: Document text content
-    - source_id: Unique identifier (filename, URL, etc)
-    - source_type: Type of source (PDF, DOCX, WEB, AUDIO, NOTE)
-    
-    Returns: Success confirmation with metadata extracted
+    Index pre-extracted text into the workspace.
+    For file uploads (PDF/DOCX) use POST /api/upload instead.
     """
     try:
-        # Extract dates for preview
         extracted_dates = extract_dates_from_text(request.text)
-        
-        # Index the data
-        index_data(
-            request.workspace_id,
-            request.text,
-            request.source_id,
-            request.source_type
-        )
-        
+        index_data(request.workspace_id, request.text, request.source_id, request.source_type)
         return {
             "status": "success",
             "message": f"Indexed {len(request.text.split())} words from {request.source_id}",
@@ -296,9 +279,145 @@ async def index_document(request: IndexRequest):
             "dates_found": [d.isoformat() for d in extracted_dates],
             "source_type": request.source_type
         }
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
+
+# =====================================================================
+# 6a. NODES ENDPOINT — restore graph nodes on frontend reload
+# =====================================================================
+
+@app.get("/api/nodes/{workspace_id}")
+async def get_nodes(workspace_id: str):
+    """
+    Returns all unique source_ids indexed in a workspace.
+    Frontend calls this on page load to rebuild the knowledge graph.
+    """
+    try:
+        if chroma_client is None:
+            return {"workspace_id": workspace_id, "nodes": []}
+        collection = chroma_client.get_or_create_collection(name=workspace_id)
+        results = collection.get(include=["metadatas"])
+        seen = {}
+        for meta in results["metadatas"]:
+            sid = meta.get("source_id")
+            if sid and sid not in seen:
+                seen[sid] = meta.get("source_type", "NOTE")
+        nodes = [{"source_id": k, "source_type": v} for k, v in seen.items()]
+        return {"workspace_id": workspace_id, "nodes": nodes}
+    except Exception:
+        return {"workspace_id": workspace_id, "nodes": []}
+
+# =====================================================================
+# 6c. DELETE ENDPOINTS — clear workspace or single node
+# =====================================================================
+
+@app.delete("/api/workspace/{workspace_id}")
+async def clear_workspace(workspace_id: str):
+    """
+    Delete ALL indexed data for a workspace (drops the entire ChromaDB collection).
+    Called from the UI's 'CLEAR DB' button.
+    """
+    try:
+        if chroma_client is None:
+            raise HTTPException(status_code=503, detail="ChromaDB not available")
+        chroma_client.delete_collection(name=workspace_id)
+        return {"status": "success", "message": f"Workspace '{workspace_id}' cleared."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Clear workspace failed: {str(e)}")
+
+
+@app.delete("/api/node/{workspace_id}/{source_id:path}")
+async def delete_node(workspace_id: str, source_id: str):
+    """
+    Delete all chunks belonging to a single source_id from the workspace collection.
+    Called when the user clicks a node in the graph and chooses 'Delete'.
+    """
+    try:
+        if chroma_client is None:
+            raise HTTPException(status_code=503, detail="ChromaDB not available")
+        collection = chroma_client.get_or_create_collection(name=workspace_id)
+
+        # Find all chunk IDs whose metadata source_id matches
+        results = collection.get(include=["metadatas"])
+        ids_to_delete = [
+            doc_id
+            for doc_id, meta in zip(results["ids"], results["metadatas"])
+            if meta.get("source_id") == source_id
+        ]
+
+        if not ids_to_delete:
+            raise HTTPException(status_code=404, detail=f"No chunks found for source_id '{source_id}'")
+
+        collection.delete(ids=ids_to_delete)
+        return {
+            "status": "success",
+            "message": f"Deleted {len(ids_to_delete)} chunk(s) for '{source_id}'",
+            "deleted_chunks": len(ids_to_delete)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Node deletion failed: {str(e)}")
+
+
+# =====================================================================
+# 6b. FILE UPLOAD ENDPOINT — multipart, server-side text extraction
+# =====================================================================
+
+@app.post("/api/upload")
+async def upload_file(
+    workspace_id: str = Form(...),
+    file: UploadFile = File(...)
+):
+    """
+    Accept a raw file, extract text server-side, then index into ChromaDB.
+    Supports PDF (pypdf), DOCX (python-docx), and plain text (txt/md/csv).
+
+    Form fields:
+    - workspace_id: Target workspace
+    - file: The uploaded file (multipart/form-data)
+    """
+    ext = (file.filename.split(".")[-1] if "." in file.filename else "txt").lower()
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+
+        if ext == "pdf":
+            text = ai_layer.extract_text_from_pdf(tmp_path)
+            source_type = "PDF"
+        elif ext in ("docx", "doc"):
+            text = ai_layer.extract_text_from_docx(tmp_path)
+            source_type = "DOCX"
+        else:
+            with open(tmp_path, "r", encoding="utf-8", errors="replace") as f:
+                text = f.read()
+            source_type = "NOTE"
+
+        if not text.strip():
+            raise HTTPException(status_code=422, detail="No text could be extracted from the file.")
+
+        extracted_dates = ai_layer.extract_dates_from_text(text)
+        ai_layer.index_data(workspace_id, text, file.filename, source_type)
+
+        return {
+            "status": "success",
+            "message": f"Indexed {len(text.split())} words from {file.filename}",
+            "workspace": workspace_id,
+            "source_id": file.filename,
+            "source_type": source_type,
+            "dates_found": [d.isoformat() for d in extracted_dates],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Upload/indexing failed: {str(e)}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 # =====================================================================
 # 7. HEALTH CHECK & INFO
@@ -319,7 +438,9 @@ async def get_info():
             "POST /api/timeline - Generate timeline",
             "GET /api/calendar/{workspace_id} - Get calendar view",
             "POST /api/chat - Chat with AI",
-            "POST /api/index - Index new data",
+            "POST /api/index - Index pre-extracted text",
+            "POST /api/upload - Upload raw file (PDF/DOCX/txt)",
+            "GET /api/nodes/{workspace_id} - List indexed documents",
             "GET /api/health - Health check"
         ]
     }
@@ -338,6 +459,7 @@ if __name__ == "__main__":
     print("🚀 Starting Second Brain API Server...")
     print(f"📍 Running on http://{host}:{port}")
     print(f"📚 API Docs available at http://{host}:{port}/docs")
+    print(f"💾 ChromaDB path: {os.getenv('DATABASE_PATH', './chroma_db')} (set DATABASE_PATH in .env to override)")
     
     try:
         uvicorn.run(app, host=host, port=port)

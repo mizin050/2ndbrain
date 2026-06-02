@@ -216,7 +216,10 @@ def extract_dates_from_text(text: str) -> list:
             pass
     
     # Pattern 5: Last/Next specific days ("last Tuesday", "next Monday")
-    last_next_pattern = r'(last|next|this)\s+' + weekdays
+    # weekdays is a non-capturing group (?:...) so group(2) doesn't exist.
+    # Rebuild as a capturing group so group(2) works correctly.
+    weekdays_capturing = r'(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)'
+    last_next_pattern = r'(last|next|this)\s+' + weekdays_capturing
     for match in re.finditer(last_next_pattern, text, re.IGNORECASE):
         direction = match.group(1).lower()
         day_name = match.group(2).lower()
@@ -392,59 +395,71 @@ def generate_timeline(workspace_id: str, start_date: str = None, end_date: str =
 # =====================================================================
 # 4. CHATBOT INTEGRATION & SYNTHESIS LAYER
 # =====================================================================
-def get_dynamic_chat_engine(workspace_id: str, app_identity: str, custom_rules: str) -> CondensePlusContextChatEngine:
+def query_workspace(workspace_id: str, message: str, app_identity: str, custom_rules: str) -> str:
     """
-    Constructs an interactive chatbot instance on the fly. Isolates context tracking 
-    to the current workspace, attaches conversational memory, and sets system behavioral profiles 
-    dynamically without any hardcoding.
+    Retrieve top-k chunks from ChromaDB via embedding similarity,
+    then call the Groq SDK *directly* — bypassing LlamaIndex's HTTP
+    wrapper which was returning gzip-compressed bytes as raw text.
     """
+    import groq as groq_sdk
+
+    # ── 1. Embed the query and retrieve relevant chunks ──────────────
+    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+    embed_model = HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
+    query_embedding = embed_model.get_text_embedding(message)
 
     chroma_collection = chroma_client.get_or_create_collection(name=workspace_id)
-    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-    storage_context = StorageContext.from_defaults(vector_store=vector_store)
-    
-    
-    index = VectorStoreIndex.from_vector_store(vector_store, storage_context=storage_context)
-    
-  
-    
+    results = chroma_collection.query(
+        query_embeddings=[query_embedding],
+        n_results=4,
+        include=["documents", "metadatas"]
+    )
+    chunks = results.get("documents", [[]])[0]
+    context = "\n\n---\n\n".join(chunks) if chunks else ""
 
-    dynamic_system_prompt = (
-        f"You are the advanced, core AI conversational assistant powering the '{app_identity}' platform.\n"
-        f"Your absolute mandate is to solve requests by synthesizing clear, professional responses "
-        f"utilizing exclusively the background vector blocks retrieved from the user's Second Memory store.\n\n"
-        f"Operational Guardrails:\n"
-        f"1. Ground every single assertion inside the provided context blocks.\n"
-        f"2. Specific instructions for this active session: {custom_rules}\n"
-        f"3. If the background knowledge-base context blocks do not possess the necessary raw information "
-        f"to satisfy the query, cleanly state that the secure workspace indices do not currently contain "
-        f"records corresponding to that topic.\n"
-        f"4. Timeline Synthesis: When asked about timelines, project milestones, or chronological events, "
-        f"use the temporal metadata available in the indexed documents to construct coherent narratives "
-        f"organized by date. Include source citations (file names, types) for traceability.\n"
-        f"5. If the user asks to filter memory by date range or time period, acknowledge those constraints "
-        f"and respond only with information that falls within the specified timeframe."
+    # ── 2. Build prompt ───────────────────────────────────────────────
+    system_msg = (
+        f"You are the AI assistant for the '{app_identity}' personal knowledge base. "
+        f"{custom_rules} "
+        f"Answer the user's question using ONLY the context provided. "
+        f"If the answer is not in the context, say: "
+        f"'I could not find that in your indexed documents.'"
     )
-    
-   
-    chat_engine = CondensePlusContextChatEngine.from_defaults(
-        retriever=index.as_retriever(similarity_top_k=4),
-        system_prompt=dynamic_system_prompt,
-        verbose=False
+    user_msg = f"Context from indexed documents:\n{context}\n\nQuestion: {message}"
+
+    # ── 3. Call Groq SDK directly — clean text response guaranteed ────
+    client = groq_sdk.Groq(api_key=os.getenv("GROQ_API_KEY"))
+    completion = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user",   "content": user_msg},
+        ],
+        temperature=0.2,
+        max_tokens=1024,
     )
-    
-    return chat_engine
+    answer = completion.choices[0].message.content or ""
+    return answer.strip() or "I could not find that in your indexed documents."
+
+
+# Kept for import compatibility — delegates to query_workspace
+def get_dynamic_chat_engine(workspace_id: str, app_identity: str, custom_rules: str):
+    raise NotImplementedError("Replaced by query_workspace(). Update api.py.")
 
 def detect_and_handle_timeline_request(query: str, workspace_id: str) -> tuple:
     """
     Detects if a query is asking for a timeline and returns (is_timeline_request, response).
     If it is, generates and returns the timeline directly.
     """
-    timeline_keywords = ["timeline", "chronological", "when did", "date", "schedule", "milestones", 
-                        "launch goals", "project progression", "events", "history"]
-    
-    query_lower = query.lower()
-    is_timeline = any(keyword in query_lower for keyword in timeline_keywords)
+    EXPLICIT_TIMELINE_PHRASES = [
+        "show timeline", "show me the timeline", "generate timeline",
+        "give me a timeline", "display timeline", "build a timeline",
+        "create a timeline", "chronological list", "chronological view",
+        "show all events", "list all events", "show milestones",
+        "project timeline", "full timeline", "complete timeline",
+    ]
+    query_lower = query.lower().strip()
+    is_timeline = any(phrase in query_lower for phrase in EXPLICIT_TIMELINE_PHRASES)
     
     if not is_timeline:
         return False, None

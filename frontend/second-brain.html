@@ -500,7 +500,7 @@
     }
 
     /* ── CALENDAR PANEL ── */
-    #calendar-view { padding: 0; }
+    #calendar-view { padding: 0; position: relative; }
     .cal-toolbar {
       display: flex; align-items: center; justify-content: space-between;
       padding: 6px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -561,8 +561,101 @@
     #cal-day-detail .detail-item { font-size: 9px; color: var(--text-dim); padding: 2px 0; border-bottom: 1px solid rgba(255,90,0,.07); font-family: var(--font-mono); }
     #cal-day-detail .detail-item span { color: var(--text-muted); font-size: 8px; }
 
-    #cal-loading { display: none; font-family: var(--font-mono); font-size: 9px; color: var(--orange); letter-spacing: 2px; text-align: center; padding: 10px; animation: blink 1s step-end infinite; }
+    #cal-loading {
+      display: none; font-family: var(--font-mono); font-size: 9px; color: var(--orange);
+      letter-spacing: 2px; text-align: center; padding: 10px; animation: blink 1s step-end infinite;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      background: rgba(8,8,0,.85); z-index: 5; pointer-events: none;
+      border: 1px solid rgba(255,90,0,.3); border-radius: 2px; white-space: nowrap;
+    }
     #cal-loading.visible { display: block; }
+
+    /* ── CLEAR DB BUTTON in header ── */
+    #clear-db-btn {
+      background: none; border: 1px solid rgba(255,68,68,.4);
+      color: rgba(255,68,68,.7); font-family: var(--font-mono); font-size: 9px;
+      letter-spacing: 2px; padding: 4px 11px; border-radius: 2px;
+      cursor: none; transition: all .2s; text-transform: uppercase; white-space: nowrap;
+    }
+    #clear-db-btn:hover { border-color: var(--red); color: var(--red); background: rgba(255,68,68,.07); box-shadow: 0 0 10px rgba(255,68,68,.15); }
+
+    /* ── CONFIRM MODAL ── */
+    #confirm-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9000; backdrop-filter: blur(4px);
+      opacity: 0; pointer-events: none; transition: opacity .25s;
+      cursor: auto;
+    }
+    #confirm-overlay.visible { opacity: 1; pointer-events: all; cursor: auto; }
+    #confirm-overlay.visible #confirm-box,
+    #confirm-overlay.visible #confirm-box *,
+    #confirm-overlay.visible .confirm-actions,
+    #confirm-overlay.visible .confirm-ok,
+    #confirm-overlay.visible .confirm-cancel { pointer-events: auto !important; cursor: pointer !important; }
+    #confirm-box {
+      background: var(--surface2); border: 1px solid rgba(255,68,68,.45);
+      border-radius: 4px; padding: 28px 32px; min-width: 320px; max-width: 420px;
+      box-shadow: 0 0 40px rgba(255,68,68,.15), 0 0 80px rgba(0,0,0,.6);
+      position: relative;
+    }
+    #confirm-box::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+    }
+    #confirm-title {
+      font-family: var(--font-display); font-size: 22px; letter-spacing: 2px;
+      color: var(--red); margin-bottom: 10px;
+    }
+    #confirm-msg {
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+      line-height: 1.7; letter-spacing: .5px; margin-bottom: 22px;
+    }
+    #confirm-msg strong { color: var(--text); }
+    .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .confirm-cancel {
+      background: none; border: 1px solid var(--border); color: var(--text-dim);
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px;
+      padding: 7px 18px; border-radius: 2px; cursor: pointer; transition: all .2s;
+      pointer-events: auto; position: relative; z-index: 210;
+    }
+    .confirm-cancel:hover { border-color: var(--text-dim); color: var(--text); }
+    .confirm-ok {
+      background: var(--red); border: none; color: #fff;
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px;
+      padding: 7px 18px; border-radius: 2px; cursor: pointer;
+      box-shadow: 0 0 12px rgba(255,68,68,.35); transition: all .2s;
+      pointer-events: auto; position: relative; z-index: 210;
+    }
+    .confirm-ok:hover { background: #ff2222; box-shadow: 0 0 20px rgba(255,68,68,.55); }
+    #confirm-box { pointer-events: auto; }
+    #confirm-overlay.visible * { pointer-events: auto; }
+
+    /* ── NODE CONTEXT MENU ── */
+    #node-ctx-menu {
+      position: fixed; z-index: 9100;
+      background: rgba(8,8,0,.96); border: 1px solid rgba(255,90,0,.4);
+      border-radius: 3px; padding: 6px 0;
+      box-shadow: 0 0 20px rgba(255,90,0,.15);
+      font-family: var(--font-mono); font-size: 10px;
+      min-width: 180px;
+      display: none;
+    }
+    #node-ctx-menu.visible { display: block; }
+    .ctx-header {
+      padding: 5px 14px 7px; font-size: 9px; color: var(--orange);
+      letter-spacing: 2px; border-bottom: 1px solid var(--border);
+      margin-bottom: 4px; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; max-width: 200px;
+    }
+    .ctx-item {
+      padding: 7px 14px; color: var(--text-dim); cursor: none;
+      letter-spacing: 1px; transition: all .15s; display: flex; align-items: center; gap: 8px;
+    }
+    .ctx-item:hover { background: rgba(255,90,0,.07); color: var(--text); }
+    .ctx-item.danger { color: rgba(255,68,68,.75); }
+    .ctx-item.danger:hover { background: rgba(255,68,68,.08); color: var(--red); }
+    .ctx-icon { font-size: 12px; width: 14px; text-align: center; }
   </style>
 </head>
 <body>
@@ -593,6 +686,7 @@
     </div>
 
     <div class="header-right">
+      <button id="clear-db-btn" title="Purge all indexed data for this workspace">⚠ CLEAR DB</button>
       <div class="header-ascii">
         <span>&gt;&gt;</span>
         <span class="ascii-blink">_</span>
@@ -602,6 +696,25 @@
       </div>
     </div>
   </header>
+
+  <!-- ── CONFIRM MODAL ── -->
+  <div id="confirm-overlay">
+    <div id="confirm-box">
+      <div id="confirm-title">CONFIRM DELETE</div>
+      <div id="confirm-msg">Loading…</div>
+      <div class="confirm-actions">
+        <button class="confirm-cancel" id="confirm-cancel-btn">CANCEL</button>
+        <button class="confirm-ok" id="confirm-ok-btn">DELETE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NODE CONTEXT MENU ── -->
+  <div id="node-ctx-menu">
+    <div class="ctx-header" id="ctx-node-label">NODE</div>
+    <div class="ctx-item" id="ctx-info-btn"><span class="ctx-icon">ℹ</span> NODE INFO</div>
+    <div class="ctx-item danger" id="ctx-delete-btn"><span class="ctx-icon">✕</span> DELETE FROM DB</div>
+  </div>
 
   <main id="app">
 
@@ -698,6 +811,7 @@
                 <button class="cal-nav-btn" id="cal-next">›</button>
                 <button class="cal-fetch-btn" id="cal-fetch-btn">LOAD</button>
               </div>
+              <div id="cal-loading">LOADING CALENDAR…</div>
               <div id="calendar-grid-wrap">
                 <div class="cal-dow-row">
                   <div class="cal-dow">SUN</div><div class="cal-dow">MON</div>
@@ -706,7 +820,6 @@
                   <div class="cal-dow">SAT</div>
                 </div>
                 <div class="cal-days" id="cal-days"></div>
-                <div id="cal-loading">LOADING CALENDAR…</div>
               </div>
               <div id="cal-day-detail">
                 <div class="detail-title">SELECT A DAY</div>
@@ -762,9 +875,16 @@
      so page refreshes don't lose it.
   ══════════════════════════════════════════════════════════════════ */
   const wsInput = document.getElementById('workspace-input');
-  wsInput.value = sessionStorage.getItem('sb_workspace') || 'default';
-  wsInput.addEventListener('change', () => {
-    sessionStorage.setItem('sb_workspace', wsInput.value.trim() || 'default');
+  wsInput.value = localStorage.getItem('sb_workspace') || 'default';
+  wsInput.addEventListener('input', () => {
+    localStorage.setItem('sb_workspace', wsInput.value.trim() || 'default');
+    // Reload graph nodes for new workspace
+    if (typeof restoreGraphNodes === 'function') {
+      docNodes.splice(0, docNodes.length);
+      particles.splice(0, particles.length);
+      document.getElementById('node-count').textContent = '0';
+      restoreGraphNodes();
+    }
   });
   function getWorkspace() {
     return wsInput.value.trim() || 'default';
@@ -944,43 +1064,35 @@
        4. Only add a graph node once indexing succeeds
   ══════════════════════════════════════════════════════════════════ */
 
-  /* Map file extensions to the backend's source_type enum */
-  function extToSourceType(ext) {
-    const map = { pdf:'PDF', docx:'DOCX', doc:'DOCX', md:'NOTE', txt:'NOTE', csv:'NOTE', epub:'NOTE' };
-    return map[ext.toLowerCase()] || 'NOTE';
-  }
-
+  /*
+    indexFile — sends raw file to POST /api/upload as multipart/form-data.
+    Backend extracts text server-side for PDF/DOCX so binary files work correctly.
+    Do NOT set Content-Type header — browser must set it with the boundary token.
+  */
   async function indexFile(file, statusEl) {
-    return new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const text = e.target.result;
-        const ext  = (file.name.split('.').pop() || 'txt').toLowerCase();
-        try {
-          const res = await fetch(`${API_BASE}/api/index`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              workspace_id: getWorkspace(),
-              text,
-              source_id:   file.name,
-              source_type: extToSourceType(ext)
-            })
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          statusEl.textContent  = 'INDEXED';
-          statusEl.className    = 'pfile-status done';
-          resolve({ success: true, dates: data.dates_found });
-        } catch (err) {
-          statusEl.textContent = 'ERROR';
-          statusEl.className   = 'pfile-status error';
-          resolve({ success: false });
-        }
-      };
-      reader.onerror = () => { statusEl.textContent = 'READ ERR'; statusEl.className = 'pfile-status error'; resolve({ success: false }); };
-      reader.readAsText(file);  // works for txt/md/csv; for binary (pdf/docx) backend handles raw text extraction separately
-    });
+    const ws = getWorkspace();
+    if (!ws) {
+      statusEl.textContent = 'NO WS';
+      statusEl.className   = 'pfile-status error';
+      showToast('SET A WORKSPACE ID FIRST');
+      return { success: false };
+    }
+    const formData = new FormData();
+    formData.append('workspace_id', ws);
+    formData.append('file', file);
+    try {
+      const res  = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      statusEl.textContent = 'INDEXED';
+      statusEl.className   = 'pfile-status done';
+      return { success: true, dates: data.dates_found };
+    } catch (err) {
+      statusEl.textContent = 'ERROR';
+      statusEl.className   = 'pfile-status error';
+      console.error('[indexFile]', err);
+      return { success: false };
+    }
   }
 
   async function handleFiles(files) {
@@ -995,7 +1107,7 @@
       const result = await indexFile(f, statusEl);
       if (result.success) {
         indexed++;
-        addDocNode(baseName, ext);
+        addDocNode(baseName, ext, f.name);
         if (result.dates && result.dates.length) {
           showToast(`${baseName}: ${result.dates.length} DATE(S) EXTRACTED`);
         }
@@ -1063,23 +1175,54 @@
   let docNodes = [], animFrame = 0, hovered = null;
   const coreNode = { id:'core', label:'YOU', x:0, y:0, r:CORE_R, angle:0, orbitR:0, speed:0, color:{fill:'#FF5A00',glow:'rgba(255,90,0,0.7)'}, isCore:true, birth:0, alpha:1 };
 
+  /* Nodes per ring — enough spacing so nodes never overlap */
+  const NODES_PER_RING = 8;
+
   function getOrbitParams(idx) {
-    const ring = Math.floor(idx/6), slot = idx%6;
-    const total = Math.min(6, docNodes.length - ring*6 || 1);
-    const orbitR = 90 + ring*80;
-    const angle = (slot/total)*Math.PI*2 + ring*.5;
-    const speed = (.0004+ring*.0001) * (ring%2===0?1:-1);
-    return {orbitR, angle, speed};
+    const ring  = Math.floor(idx / NODES_PER_RING);
+    const slot  = idx % NODES_PER_RING;
+    const orbitR = 110 + ring * 90;                      // wider rings, more separation
+    const angle  = (slot / NODES_PER_RING) * Math.PI * 2 + ring * (Math.PI / NODES_PER_RING); // offset alternate rings
+    const speed  = (0.00035 + ring * 0.00008) * (ring % 2 === 0 ? 1 : -1);
+    return { orbitR, angle, speed };
   }
 
-  function addDocNode(name, ext) {
+  function addDocNode(name, ext, sourceId) {
     const idx = docNodes.length;
-    const {orbitR, angle, speed} = getOrbitParams(idx);
-    const r = 13 + Math.random()*5;
-    docNodes.push({ id:'n'+Date.now()+idx, label:name.length>10?name.slice(0,9)+'…':name, ext:ext.toUpperCase(), x:cx+Math.cos(angle)*orbitR, y:cy+Math.sin(angle)*orbitR, r, angle, orbitR, speed, color:NODE_COLORS[idx%NODE_COLORS.length], isCore:false, birth:animFrame, alpha:0 });
+    const { orbitR, angle, speed } = getOrbitParams(idx);
+    const r = 14;  // fixed radius so all nodes are same size — no overlap risk
+    // sourceId is the full filename used in ChromaDB; label is truncated for display
+    const fullId = sourceId || (name + (ext ? '.' + ext.toLowerCase() : ''));
+    docNodes.push({
+      id: 'n' + Date.now() + idx,
+      label: name.length > 10 ? name.slice(0, 9) + '…' : name,
+      sourceId: fullId,
+      ext: ext.toUpperCase(),
+      x: cx + Math.cos(angle) * orbitR,
+      y: cy + Math.sin(angle) * orbitR,
+      r, angle, orbitR, speed,
+      color: NODE_COLORS[idx % NODE_COLORS.length],
+      isCore: false, birth: animFrame, alpha: 0
+    });
     document.getElementById('node-count').textContent = docNodes.length;
     document.getElementById('graph-hint').style.opacity = '0';
   }
+
+  /* Restore graph nodes from ChromaDB on page load */
+  async function restoreGraphNodes() {
+    try {
+      const res = await fetch(`${API_BASE}/api/nodes/${encodeURIComponent(getWorkspace())}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      data.nodes.forEach(n => {
+        const ext  = n.source_type.toLowerCase();
+        const name = n.source_id.replace(/\.[^.]+$/, '');
+        addDocNode(name, ext, n.source_id);
+      });
+      if (data.nodes.length) showToast(`RESTORED ${data.nodes.length} NODE(S)`);
+    } catch (_) {}
+  }
+  restoreGraphNodes();
 
   const particles = [];
   function tickParticles() {
@@ -1146,8 +1289,14 @@
   mainC.addEventListener('click', e => {
     const r=mainC.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
     const wx=(mx-panX)/zoom, wy=(my-panY)/zoom;
-    if(Math.hypot(wx-coreNode.x,wy-coreNode.y)<coreNode.r+8){toggleUploadPopup();return;}
-    for(const n of docNodes){ if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){showToast('NODE: '+n.label+'.'+n.ext.toLowerCase());return;} }
+    if(Math.hypot(wx-coreNode.x,wy-coreNode.y)<coreNode.r+8){hideNodeCtx();toggleUploadPopup();return;}
+    for(const n of docNodes){
+      if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){
+        showNodeCtx(n, e.clientX, e.clientY);
+        return;
+      }
+    }
+    hideNodeCtx(); // click empty space — close menu
   });
   mainC.addEventListener('wheel', e => {
     e.preventDefault();
@@ -1191,6 +1340,9 @@
   function switchDrawerTab(viewId) {
     document.querySelectorAll('.drawer-tab').forEach(b => b.classList.toggle('active', b.dataset.view === viewId));
     document.querySelectorAll('.right-view').forEach(v => v.classList.toggle('active', v.id === viewId));
+    // Auto-load data when switching tabs — no need to manually press FETCH/LOAD
+    if (viewId === 'timeline-view' && typeof fetchTimeline === 'function') fetchTimeline();
+    if (viewId === 'calendar-view' && typeof fetchCalendar === 'function') fetchCalendar();
   }
 
   document.querySelectorAll('.drawer-tab').forEach(btn => {
@@ -1262,7 +1414,7 @@
   */
   function renderTimeline(md) {
     if (!md || md.startsWith('No ') || md.startsWith('Error')) {
-      tlScroll.innerHTML = `<div class="tl-empty">${md || 'NO DATA'}</div>`;
+      tlScroll.innerHTML = `<div class="tl-empty">${md || 'NO DATA'}<br><span style="opacity:.5;font-size:9px">Documents must contain recognisable dates (e.g. Jan 2024, 2023-06-01).<br>Re-upload files after clearing chroma_db/ to rebuild with fixed metadata.</span></div>`;
       return;
     }
 
@@ -1309,11 +1461,11 @@
 
   document.getElementById('cal-prev').addEventListener('click', () => {
     calMonth--; if(calMonth<1){calMonth=12;calYear--;}
-    updateCalLabel(); buildCalGrid(calEvents);
+    updateCalLabel(); fetchCalendar();
   });
   document.getElementById('cal-next').addEventListener('click', () => {
     calMonth++; if(calMonth>12){calMonth=1;calYear++;}
-    updateCalLabel(); buildCalGrid(calEvents);
+    updateCalLabel(); fetchCalendar();
   });
   document.getElementById('cal-fetch-btn').addEventListener('click', fetchCalendar);
 
@@ -1397,6 +1549,184 @@
 
   // Build the grid immediately with empty events so the month structure shows
   buildCalGrid({});
+
+  /* ══════════════════════════════════════════════════════════════════
+     CONFIRM MODAL HELPER
+     showConfirm(msg, onOk) — shows the modal, calls onOk() if confirmed.
+  ══════════════════════════════════════════════════════════════════ */
+  const confirmOverlay  = document.getElementById('confirm-overlay');
+  const confirmMsg      = document.getElementById('confirm-msg');
+  const confirmOkBtn    = document.getElementById('confirm-ok-btn');
+  const confirmCancelBtn= document.getElementById('confirm-cancel-btn');
+  let _confirmCallback  = null;
+
+  function showConfirm(msgHTML, onOk) {
+    confirmMsg.innerHTML = msgHTML;
+    _confirmCallback = onOk;
+    confirmOverlay.classList.add('visible');
+  }
+  function hideConfirm() {
+    confirmOverlay.classList.remove('visible');
+    _confirmCallback = null;
+  }
+  confirmCancelBtn.addEventListener('click', hideConfirm);
+  // Use mousedown instead of click to avoid pointer-events timing issues
+  confirmOkBtn.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    console.log('[SB] confirm OK clicked, callback:', !!_confirmCallback);
+    const cb = _confirmCallback;
+    hideConfirm();
+    if (cb) cb();
+  });
+  confirmCancelBtn.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    hideConfirm();
+  });
+  confirmOverlay.addEventListener('mousedown', e => { if (e.target === confirmOverlay) hideConfirm(); });
+
+  /* ══════════════════════════════════════════════════════════════════
+     CLEAR ENTIRE WORKSPACE DB
+     Header button → confirm modal → DELETE /api/workspace/{id}
+  ══════════════════════════════════════════════════════════════════ */
+  function resetTimelineUI() {
+    const tlScroll = document.getElementById('timeline-scroll');
+    const tlStats  = document.getElementById('tl-stats');
+    if (tlScroll) tlScroll.innerHTML = '<div class="tl-empty">NO TIMELINE DATA<br><span style="opacity:.5;font-size:9px">Index documents then press FETCH</span></div>';
+    if (tlStats)  tlStats.textContent = '';
+  }
+
+  function resetCalendarUI() {
+    calEvents = {};
+    buildCalGrid({});
+    const detail = document.getElementById('cal-day-detail');
+    if (detail) detail.innerHTML = '<div class="detail-title">SELECT A DAY</div>';
+  }
+
+  function wipeGraphVisuals() {
+    docNodes.splice(0, docNodes.length);
+    particles.splice(0, particles.length);
+    document.getElementById('node-count').textContent = '0';
+    document.getElementById('graph-hint').style.opacity = '1';
+    resetTimelineUI();
+    resetCalendarUI();
+  }
+
+  document.getElementById('clear-db-btn').addEventListener('click', () => {
+    console.log('[SB] CLEAR DB clicked');
+    const ws = getWorkspace();
+    showConfirm(
+      `This will permanently delete <strong>ALL indexed data</strong> for workspace <strong>${ws}</strong>.<br><br>This cannot be undone. You will need to re-upload all documents.`,
+      async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/workspace/${encodeURIComponent(ws)}`, { method: 'DELETE' });
+          const data = await res.json();
+          // 404 = collection already empty — treat as success
+          if (!res.ok && res.status !== 404) throw new Error(data.detail || `HTTP ${res.status}`);
+        } catch (err) {
+          showToast('API ERROR: ' + err.message, true);
+        }
+        // Wipe graph nodes and particles
+        docNodes.splice(0, docNodes.length);
+        particles.splice(0, particles.length);
+        document.getElementById('node-count').textContent = '0';
+        document.getElementById('graph-hint').style.opacity = '1';
+        // Immediately overwrite timeline with empty state — don't call fetchTimeline
+        // because the backend may need a moment; just show the empty placeholder directly
+        const tlScroll = document.getElementById('timeline-scroll');
+        const tlStats  = document.getElementById('tl-stats');
+        if (tlScroll) tlScroll.innerHTML = '<div class="tl-empty">NO TIMELINE DATA<br><span style="opacity:.5;font-size:9px">Index documents then press FETCH</span></div>';
+        if (tlStats)  tlStats.textContent = '';
+        // Wipe calendar
+        calEvents = {};
+        buildCalGrid({});
+        showToast('DB CLEARED — ALL DATA PURGED', true);
+      }
+    );
+  });
+
+  /* ══════════════════════════════════════════════════════════════════
+     NODE CONTEXT MENU
+     Left-click on a doc node opens the context menu.
+     Menu has: Node Info (toast) and Delete from DB.
+  ══════════════════════════════════════════════════════════════════ */
+  const nodeCtxMenu  = document.getElementById('node-ctx-menu');
+  const ctxNodeLabel = document.getElementById('ctx-node-label');
+  let ctxTargetNode  = null;
+
+  function showNodeCtx(node, screenX, screenY) {
+    ctxTargetNode = node;
+    ctxNodeLabel.textContent = node.label + '.' + node.ext.toLowerCase();
+    // Position near click, keep within viewport
+    const menuW = 200, menuH = 90;
+    const x = Math.min(screenX + 8, window.innerWidth  - menuW - 10);
+    const y = Math.min(screenY + 8, window.innerHeight - menuH - 10);
+    nodeCtxMenu.style.left = x + 'px';
+    nodeCtxMenu.style.top  = y + 'px';
+    nodeCtxMenu.classList.add('visible');
+  }
+  function hideNodeCtx() {
+    nodeCtxMenu.classList.remove('visible');
+    ctxTargetNode = null;
+  }
+
+  document.getElementById('ctx-info-btn').addEventListener('click', () => {
+    if (!ctxTargetNode) return;
+    showToast('NODE: ' + ctxTargetNode.label + '.' + ctxTargetNode.ext.toLowerCase());
+    hideNodeCtx();
+  });
+
+  document.getElementById('ctx-delete-btn').addEventListener('click', () => {
+    const node = ctxTargetNode;
+    hideNodeCtx();
+    if (!node) return;
+    const fullName = node.label + (node.ext ? '.' + node.ext.toLowerCase() : '');
+    showConfirm(
+      `Delete <strong>${fullName}</strong> from workspace <strong>${getWorkspace()}</strong>?<br><br>All indexed chunks for this file will be permanently removed.`,
+      async () => {
+        try {
+          const ws = getWorkspace();
+          // Use the stored full source_id (set when node was created)
+          const sourceId = node.sourceId || (node.label + (node.ext ? '.' + node.ext.toLowerCase() : ''));
+          const res = await fetch(
+            `${API_BASE}/api/node/${encodeURIComponent(ws)}/${encodeURIComponent(sourceId)}`,
+            { method: 'DELETE' }
+          );
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+          // Remove from visual graph
+          const idx = docNodes.indexOf(node);
+          if (idx !== -1) {
+            docNodes.splice(idx, 1);
+            // Re-index remaining nodes so orbits stay clean
+            docNodes.forEach((n, i) => {
+              const { orbitR, speed } = getOrbitParams(i);
+              n.orbitR = orbitR; n.speed = speed;
+            });
+            document.getElementById('node-count').textContent = docNodes.length;
+          }
+          showToast(`DELETED: ${sourceId}`);
+          // Immediately clear timeline DOM then re-fetch from the now-updated DB
+          const tlScroll = document.getElementById('timeline-scroll');
+          const tlStats  = document.getElementById('tl-stats');
+          if (tlScroll) tlScroll.innerHTML = '<div class="tl-empty">UPDATING…</div>';
+          if (tlStats)  tlStats.textContent = '';
+          calEvents = {}; buildCalGrid({});
+          // Small delay to let backend finish, then re-fetch
+          setTimeout(() => { if (typeof fetchTimeline === 'function') fetchTimeline(); }, 300);
+        } catch (err) {
+          showToast('ERROR: ' + err.message, true);
+        }
+      }
+    );
+  });
+
+  // Close context menu on outside click or Escape
+  document.addEventListener('click', e => {
+    if (!nodeCtxMenu.contains(e.target)) hideNodeCtx();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { hideNodeCtx(); hideConfirm(); }
+  });
 
   /* ══════════════════════════════════════════════════════════════════
      GLITCH

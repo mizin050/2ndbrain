@@ -1,0 +1,16 @@
+beautifulsoup4
+chromadb
+fastapi
+google-cloud-speech
+llama-index
+llama-index-embeddings-huggingface
+llama-index-llms-groq
+llama-index-vector-stores-chroma
+pydantic
+pypdf
+python-docx
+python-dotenv
+python-multipart
+requests
+sentence-transformers
+uvicorn

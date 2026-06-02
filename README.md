@@ -160,6 +160,22 @@ pip install -r requirements.txt
 python ai-layer/ai-layer.py
 ```
 
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+The Python backend serves `second-brain.html` and exposes the frontend API:
+
+```text
+GET  /api/health
+POST /api/chat
+POST /api/ingest/files
+POST /api/ingest/text
+POST /api/ingest/url
+```
+
 ---
 
 ## 🧪 Running Tests

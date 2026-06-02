@@ -998,6 +998,10 @@
       color: #00ff88;
     }
 
+    .pfile-status.error {
+      color: #ff4d4d;
+    }
+
     #toast-container {
       position: absolute;
       top: 74px;
@@ -1260,6 +1264,11 @@
     const sendBtn = document.getElementById('send-btn');
     const chatMessages = document.getElementById('chat-messages');
     const typingInd = document.getElementById('typing-indicator');
+    const statusText = document.querySelector('.ai-status span');
+    const API_BASE = window.location.origin.startsWith('http')
+      ? window.location.origin
+      : 'http://127.0.0.1:8000';
+    const WORKSPACE_ID = 'second_brain';
 
     msgInput.addEventListener('input', function() {
       this.style.height = 'auto';
@@ -1318,6 +1327,82 @@
     /* ════════════════════════════════════════════════════════════════
        KNOWLEDGE GRAPH
        ════════════════════════════════════════════════════════════════ */
+    function setModelStatus(text) {
+      if (statusText) statusText.textContent = text;
+    }
+
+    async function checkBackendHealth() {
+      try {
+        const res = await fetch(`${API_BASE}/api/health`);
+        if (!res.ok) throw new Error('Health check failed');
+        const health = await res.json();
+        if (!health.ai_dependencies_ready) {
+          setModelStatus('BACKEND LINKED - INSTALL REQUIREMENTS');
+        } else {
+          setModelStatus(health.llm_configured ? 'MODEL ACTIVE - BACKEND LINKED' : 'BACKEND LINKED - ADD GROQ_API_KEY');
+        }
+      } catch (err) {
+        setModelStatus('BACKEND OFFLINE - START AI LAYER');
+      }
+    }
+
+    function appendMsg(text, type) {
+      const el = document.createElement('div');
+      el.className = `msg ${type}`;
+      const avatar = document.createElement('div');
+      avatar.className = 'msg-avatar';
+      avatar.textContent = type === 'ai' ? 'SB' : 'ME';
+      const body = document.createElement('div');
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      bubble.textContent = text;
+      const time = document.createElement('div');
+      time.className = 'msg-time';
+      time.textContent = fmtTime();
+      body.appendChild(bubble);
+      body.appendChild(time);
+      el.appendChild(avatar);
+      el.appendChild(body);
+      chatMessages.insertBefore(el, typingInd);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function sendChatMessage() {
+      const text = msgInput.value.trim();
+      if (!text) return;
+
+      appendMsg(text, 'user');
+      msgInput.value = '';
+      msgInput.style.height = 'auto';
+      sendBtn.disabled = true;
+      typingInd.classList.add('visible');
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            workspace_id: WORKSPACE_ID,
+            app_identity: 'Second Brain'
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Chat request failed');
+        appendMsg(data.answer || 'No response returned by the AI layer.', 'ai');
+      } catch (err) {
+        appendMsg(`Backend request failed: ${err.message}. Start the AI layer with python ai-layer/ai-layer.py.`, 'ai');
+        setModelStatus('BACKEND REQUEST FAILED');
+      } finally {
+        typingInd.classList.remove('visible');
+        sendBtn.disabled = false;
+        msgInput.focus();
+      }
+    }
+
+    checkBackendHealth();
+
     const wrap = document.getElementById('graph-canvas-wrap');
     const bgC = document.getElementById('graph-bg-canvas');
     const mainC = document.getElementById('graph-main-canvas');
@@ -1810,6 +1895,71 @@
     /* ════════════════════════════════════════════════════════════════
        DEMO INITIALIZATION
        ════════════════════════════════════════════════════════════════ */
+    function addUploadRow(file) {
+      const row = document.createElement('div');
+      row.className = 'pfile-item';
+      row.innerHTML = `<span class="pfile-ext">${getExt(file.name).toUpperCase()}</span><span class="pfile-name"></span><span class="pfile-status indexing">UPLOADING...</span>`;
+      row.querySelector('.pfile-name').textContent = file.name;
+      popupFileList.appendChild(row);
+      popupFileList.scrollTop = popupFileList.scrollHeight;
+      return row;
+    }
+
+    function setUploadRowStatus(row, text, className) {
+      const status = row.querySelector('.pfile-status');
+      status.textContent = text;
+      status.className = `pfile-status ${className}`;
+    }
+
+    async function handleFiles(files) {
+      const selected = Array.from(files).slice(0, 10);
+      if (!selected.length) return;
+
+      const rows = new Map();
+      selected.forEach(file => rows.set(file.name, addUploadRow(file)));
+
+      const formData = new FormData();
+      selected.forEach(file => formData.append('files', file));
+
+      try {
+        const res = await fetch(`${API_BASE}/api/ingest/files?workspace_id=${encodeURIComponent(WORKSPACE_ID)}`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Upload failed');
+
+        let indexed = 0;
+        (data.files || []).forEach(result => {
+          const row = rows.get(result.filename);
+          if (!row) return;
+          if (result.indexed) {
+            indexed++;
+            setUploadRowStatus(row, 'INDEXED', 'done');
+            addDocNode(result.filename.replace(/\.[^.]+$/, ''), result.source_type || getExt(result.filename));
+          } else {
+            setUploadRowStatus(row, 'FAILED', 'error');
+            row.title = result.error || 'Indexing failed';
+          }
+        });
+
+        showToast(`${indexed} FILE${indexed === 1 ? '' : 'S'} INDEXED`);
+        checkBackendHealth();
+      } catch (err) {
+        selected.forEach(file => {
+          const row = rows.get(file.name);
+          if (row) {
+            setUploadRowStatus(row, 'FAILED', 'error');
+            row.title = err.message;
+          }
+        });
+        showToast('UPLOAD FAILED');
+        setModelStatus('BACKEND UPLOAD FAILED');
+      } finally {
+        fileInputHidden.value = '';
+      }
+    }
+
     setTimeout(() => addDocNode('ml_paper', 'pdf'), 400);
     setTimeout(() => addDocNode('philosophy', 'md'), 800);
     setTimeout(() => addDocNode('notes_2024', 'txt'), 1200);

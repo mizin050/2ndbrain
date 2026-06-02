@@ -1,16 +1,22 @@
-beautifulsoup4
-chromadb
-fastapi
-google-cloud-speech
-llama-index
-llama-index-embeddings-huggingface
-llama-index-llms-groq
-llama-index-vector-stores-chroma
-pydantic
-pypdf
-python-docx
-python-dotenv
-python-multipart
-requests
-sentence-transformers
-uvicorn
+# Second Brain AI Engine - Python Dependencies
+
+# Core Framework
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.5.0
+
+# Lightweight alternatives to avoid compilation
+# Remove heavy dependencies - focus on essentials only
+
+# Document Processing (lightweight)
+pypdf>=3.17.0
+python-docx>=0.8.11
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+
+# Date Parsing
+python-dateutil>=2.8.2
+
+# Async utilities
+aiofiles>=23.0.0
+httpx>=0.24.0

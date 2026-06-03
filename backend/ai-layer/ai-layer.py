@@ -58,9 +58,23 @@ else:
     chroma_client = None
 
 
-GCP_KEY_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "gcp_key.json")
+# Resolve GCP key path relative to THIS file's directory so it works
+# regardless of the working directory api.py is launched from
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_gcp_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+if _gcp_env and os.path.exists(_gcp_env):
+    GCP_KEY_PATH = _gcp_env
+elif os.path.exists(os.path.join(_script_dir, "gcp_key.json")):
+    GCP_KEY_PATH = os.path.join(_script_dir, "gcp_key.json")
+else:
+    GCP_KEY_PATH = _gcp_env or os.path.join(_script_dir, "gcp_key.json")
+
+# Always set the env var to the resolved path so GCP client picks it up
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GCP_KEY_PATH
 if not os.path.exists(GCP_KEY_PATH):
     print(f"⚠️ Warning: GCP credentials file missing at '{GCP_KEY_PATH}'.")
+else:
+    print(f"✓ GCP credentials loaded from '{GCP_KEY_PATH}'.")
 
 # =====================================================================
 # 2. FILE INGESTION PARSERS (Multi-Modal Data Layer)
@@ -108,21 +122,33 @@ def scrape_url_to_markdown(url: str) -> str:
         raise RuntimeError(f"BeautifulSoup scraping failed: {str(e)}")
 
 def transcribe_audio_gcp(audio_file_path: str) -> str:
-    """Transcribes an input audio file via Google Cloud Speech-to-Text API."""
+    """Transcribes an audio file via Google Cloud Speech-to-Text API."""
+    if not HAS_GOOGLE_CLOUD:
+        raise RuntimeError("google-cloud-speech not installed. Run: pip install google-cloud-speech")
+    if not os.path.exists(GCP_KEY_PATH):
+        raise RuntimeError(f"GCP credentials not found at '{GCP_KEY_PATH}'. Check GOOGLE_APPLICATION_CREDENTIALS in your .env")
     try:
         client = speech.SpeechClient()
-        with open(audio_file_path, "rb") as audio_file:
-            content = audio_file.read()
-
-        audio = speech.RecognitionAudio(content=content)
+        with open(audio_file_path, "rb") as f:
+            audio_content = f.read()
+        audio  = speech.RecognitionAudio(content=audio_content)
         config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.MP3,
-            sample_rate_hertz=16000,
+            encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
             language_code="en-US",
+            enable_automatic_punctuation=True,
         )
-
-        response = client.recognize(config=config, audio=audio)
-        transcript = " ".join([result.alternatives[0].transcript for result in response.results])
+        # Try WEBM_OPUS first (browser recordings), fall back to LINEAR16
+        try:
+            response = client.recognize(config=config, audio=audio)
+        except Exception:
+            config = speech.RecognitionConfig(
+                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                sample_rate_hertz=16000,
+                language_code="en-US",
+                enable_automatic_punctuation=True,
+            )
+            response = client.recognize(config=config, audio=audio)
+        transcript = " ".join([r.alternatives[0].transcript for r in response.results])
         return transcript if transcript else "[Empty Transcription]"
     except Exception as e:
         raise RuntimeError(f"GCP Speech-to-Text transcription failed: {str(e)}")
@@ -216,10 +242,8 @@ def extract_dates_from_text(text: str) -> list:
             pass
     
     # Pattern 5: Last/Next specific days ("last Tuesday", "next Monday")
-    # weekdays is a non-capturing group (?:...) so group(2) doesn't exist.
-    # Rebuild as a capturing group so group(2) works correctly.
-    weekdays_capturing = r'(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)'
-    last_next_pattern = r'(last|next|this)\s+' + weekdays_capturing
+    # weekdays uses a non-capturing (?:...) group — wrap in capturing parens for group(2)
+    last_next_pattern = r'(last|next|this)\s+(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)'
     for match in re.finditer(last_next_pattern, text, re.IGNORECASE):
         direction = match.group(1).lower()
         day_name = match.group(2).lower()

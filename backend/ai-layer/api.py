@@ -257,6 +257,8 @@ async def chat(request: ChatRequest):
         )
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 # =====================================================================
@@ -306,59 +308,6 @@ async def get_nodes(workspace_id: str):
         return {"workspace_id": workspace_id, "nodes": nodes}
     except Exception:
         return {"workspace_id": workspace_id, "nodes": []}
-
-# =====================================================================
-# 6c. DELETE ENDPOINTS — clear workspace or single node
-# =====================================================================
-
-@app.delete("/api/workspace/{workspace_id}")
-async def clear_workspace(workspace_id: str):
-    """
-    Delete ALL indexed data for a workspace (drops the entire ChromaDB collection).
-    Called from the UI's 'CLEAR DB' button.
-    """
-    try:
-        if chroma_client is None:
-            raise HTTPException(status_code=503, detail="ChromaDB not available")
-        chroma_client.delete_collection(name=workspace_id)
-        return {"status": "success", "message": f"Workspace '{workspace_id}' cleared."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Clear workspace failed: {str(e)}")
-
-
-@app.delete("/api/node/{workspace_id}/{source_id:path}")
-async def delete_node(workspace_id: str, source_id: str):
-    """
-    Delete all chunks belonging to a single source_id from the workspace collection.
-    Called when the user clicks a node in the graph and chooses 'Delete'.
-    """
-    try:
-        if chroma_client is None:
-            raise HTTPException(status_code=503, detail="ChromaDB not available")
-        collection = chroma_client.get_or_create_collection(name=workspace_id)
-
-        # Find all chunk IDs whose metadata source_id matches
-        results = collection.get(include=["metadatas"])
-        ids_to_delete = [
-            doc_id
-            for doc_id, meta in zip(results["ids"], results["metadatas"])
-            if meta.get("source_id") == source_id
-        ]
-
-        if not ids_to_delete:
-            raise HTTPException(status_code=404, detail=f"No chunks found for source_id '{source_id}'")
-
-        collection.delete(ids=ids_to_delete)
-        return {
-            "status": "success",
-            "message": f"Deleted {len(ids_to_delete)} chunk(s) for '{source_id}'",
-            "deleted_chunks": len(ids_to_delete)
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Node deletion failed: {str(e)}")
-
 
 # =====================================================================
 # 6b. FILE UPLOAD ENDPOINT — multipart, server-side text extraction
@@ -415,6 +364,97 @@ async def upload_file(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Upload/indexing failed: {str(e)}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+# =====================================================================
+# 6d. URL INGESTION — scrape a webpage and index it
+# =====================================================================
+
+class UrlIngestRequest(BaseModel):
+    workspace_id: str
+    url: str
+
+@app.post("/api/ingest-url")
+async def ingest_url(request: UrlIngestRequest):
+    """
+    Scrape a URL, extract its text, and index it into ChromaDB.
+    Uses BeautifulSoup scraper already in ai_layer.
+    """
+    try:
+        text = ai_layer.scrape_url_to_markdown(request.url)
+        if not text.strip():
+            raise HTTPException(status_code=422, detail="No text could be extracted from the URL.")
+        extracted_dates = ai_layer.extract_dates_from_text(text)
+        ai_layer.index_data(request.workspace_id, text, request.url, "WEB")
+        return {
+            "status": "success",
+            "message": f"Indexed {len(text.split())} words from {request.url}",
+            "workspace": request.workspace_id,
+            "source_id": request.url,
+            "source_type": "WEB",
+            "dates_found": [d.isoformat() for d in extracted_dates],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"URL ingestion failed: {str(e)}")
+
+
+# =====================================================================
+# 6e. AUDIO INGESTION — upload audio file, transcribe, index
+# =====================================================================
+
+@app.post("/api/ingest-audio")
+async def ingest_audio(
+    workspace_id: str = Form(...),
+    file: UploadFile = File(...)
+):
+    """
+    Accept an audio file (mp3/wav/ogg/webm), transcribe via GCP Speech-to-Text,
+    then index the transcript into ChromaDB.
+    Falls back to a stub message if GCP is unavailable.
+    """
+    ext = (file.filename.split(".")[-1] if "." in file.filename else "webm").lower()
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+
+        # Attempt GCP transcription; fall back gracefully
+        try:
+            transcript = ai_layer.transcribe_audio_gcp(tmp_path)
+        except Exception as transcribe_err:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Transcription unavailable: {str(transcribe_err)}. "
+                       f"Install google-cloud-speech and provide gcp_key.json to enable audio."
+            )
+
+        if not transcript.strip() or transcript == "[Empty Transcription]":
+            raise HTTPException(status_code=422, detail="Transcription returned empty result.")
+
+        extracted_dates = ai_layer.extract_dates_from_text(transcript)
+        source_id = file.filename
+        ai_layer.index_data(workspace_id, transcript, source_id, "AUDIO")
+
+        return {
+            "status": "success",
+            "message": f"Transcribed and indexed {len(transcript.split())} words from {file.filename}",
+            "workspace": workspace_id,
+            "source_id": source_id,
+            "source_type": "AUDIO",
+            "transcript_preview": transcript[:200],
+            "dates_found": [d.isoformat() for d in extracted_dates],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Audio ingestion failed: {str(e)}")
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)

@@ -337,6 +337,71 @@
     .pfile-status.done    { color: var(--green); }
     .pfile-status.error   { color: var(--red); }
 
+    /* Upload popup tabs */
+    .popup-tabs { display: flex; gap: 0; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .popup-tab { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; padding: 7px 18px;
+      color: var(--text-dim); cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s;
+      background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
+    .popup-tab:hover { color: var(--orange); }
+    .popup-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+    .popup-panel { display: none; }
+    .popup-panel.active { display: block; }
+
+    /* URL tab */
+    .url-row { display: flex; gap: 10px; align-items: center; }
+    #url-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--font-mono); font-size: 11px; padding: 10px 14px; border-radius: 3px;
+      outline: none; transition: border-color .2s; letter-spacing: .5px; }
+    #url-input:focus { border-color: var(--orange); }
+    #url-input::placeholder { color: rgba(255,200,100,.25); }
+    #url-ingest-btn { background: var(--orange); color: var(--black); border: none;
+      font-family: var(--font-display); font-size: 15px; letter-spacing: 2px;
+      padding: 10px 22px; border-radius: 3px; cursor: pointer;
+      box-shadow: 0 4px 0 #B34000, 0 6px 16px rgba(255,90,0,.3); transition: all .15s; white-space: nowrap; }
+    #url-ingest-btn:hover { transform: translateY(-1px); }
+    #url-ingest-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #B34000; }
+    #url-status { font-family: var(--font-mono); font-size: 9px; letter-spacing: 1px; margin-top: 10px;
+      min-height: 16px; color: var(--text-dim); }
+    #url-status.ok  { color: var(--green); }
+    #url-status.err { color: var(--red); }
+    #url-status.busy { color: var(--yellow); animation: blink 1s step-end infinite; }
+
+    /* Audio tab */
+    .audio-panel-inner { display: flex; flex-direction: column; gap: 14px; }
+    .audio-record-zone { border: 1.5px dashed rgba(255,90,0,.3); border-radius: 4px; padding: 18px 20px;
+      display: flex; align-items: center; gap: 18px; transition: all .25s; }
+    .audio-record-zone.recording { border-color: var(--red); background: rgba(255,40,40,.04);
+      box-shadow: 0 0 20px rgba(255,40,40,.1); }
+    #record-btn { background: none; border: 1.5px solid rgba(255,90,0,.5); color: var(--orange);
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; padding: 10px 20px;
+      border-radius: 2px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+    #record-btn:hover { border-color: var(--orange); background: rgba(255,90,0,.07); }
+    #record-btn.recording { border-color: var(--red); color: var(--red);
+      background: rgba(255,40,40,.08); animation: blink .8s step-end infinite; }
+    .record-meta { font-family: var(--font-mono); font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+    .record-timer { font-size: 18px; color: var(--orange); letter-spacing: 3px; margin-bottom: 2px; }
+    .record-timer.recording { color: var(--red); }
+    .audio-or { text-align: center; font-family: var(--font-mono); font-size: 9px;
+      color: rgba(255,200,100,.3); letter-spacing: 3px; }
+    .audio-upload-row { display: flex; gap: 10px; align-items: center; }
+    #audio-file-input { display: none; }
+    #audio-upload-btn { background: none; border: 1px solid var(--border); color: var(--text-dim);
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; padding: 9px 18px;
+      border-radius: 2px; cursor: pointer; transition: all .2s; }
+    #audio-upload-btn:hover { border-color: var(--orange); color: var(--orange); }
+    #audio-selected-name { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+      flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #audio-index-btn { background: var(--orange); color: var(--black); border: none;
+      font-family: var(--font-display); font-size: 15px; letter-spacing: 2px;
+      padding: 9px 20px; border-radius: 3px; cursor: pointer;
+      box-shadow: 0 4px 0 #B34000; transition: all .15s; }
+    #audio-index-btn:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; }
+    #audio-status { font-family: var(--font-mono); font-size: 9px; letter-spacing: 1px;
+      min-height: 16px; color: var(--text-dim); }
+    #audio-status.ok  { color: var(--green); }
+    #audio-status.err { color: var(--red); }
+    #audio-status.busy { color: var(--yellow); animation: blink 1s step-end infinite; }
+
     /* Toast */
     #toast-container { position: absolute; top: 74px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 40; pointer-events: none; align-items: center; }
     .toast { background: rgba(8,8,0,.92); border: 1px solid rgba(255,90,0,.4); color: #FF7733; font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; padding: 6px 16px; border-radius: 2px; text-transform: uppercase; white-space: nowrap; animation: toastIn .3s ease both; }
@@ -569,93 +634,6 @@
       border: 1px solid rgba(255,90,0,.3); border-radius: 2px; white-space: nowrap;
     }
     #cal-loading.visible { display: block; }
-
-    /* ── CLEAR DB BUTTON in header ── */
-    #clear-db-btn {
-      background: none; border: 1px solid rgba(255,68,68,.4);
-      color: rgba(255,68,68,.7); font-family: var(--font-mono); font-size: 9px;
-      letter-spacing: 2px; padding: 4px 11px; border-radius: 2px;
-      cursor: none; transition: all .2s; text-transform: uppercase; white-space: nowrap;
-    }
-    #clear-db-btn:hover { border-color: var(--red); color: var(--red); background: rgba(255,68,68,.07); box-shadow: 0 0 10px rgba(255,68,68,.15); }
-
-    /* ── CONFIRM MODAL ── */
-    #confirm-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,.7);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 9000; backdrop-filter: blur(4px);
-      opacity: 0; pointer-events: none; transition: opacity .25s;
-      cursor: auto;
-    }
-    #confirm-overlay.visible { opacity: 1; pointer-events: all; cursor: auto; }
-    #confirm-overlay.visible #confirm-box,
-    #confirm-overlay.visible #confirm-box *,
-    #confirm-overlay.visible .confirm-actions,
-    #confirm-overlay.visible .confirm-ok,
-    #confirm-overlay.visible .confirm-cancel { pointer-events: auto !important; cursor: pointer !important; }
-    #confirm-box {
-      background: var(--surface2); border: 1px solid rgba(255,68,68,.45);
-      border-radius: 4px; padding: 28px 32px; min-width: 320px; max-width: 420px;
-      box-shadow: 0 0 40px rgba(255,68,68,.15), 0 0 80px rgba(0,0,0,.6);
-      position: relative;
-    }
-    #confirm-box::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--red), transparent);
-    }
-    #confirm-title {
-      font-family: var(--font-display); font-size: 22px; letter-spacing: 2px;
-      color: var(--red); margin-bottom: 10px;
-    }
-    #confirm-msg {
-      font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
-      line-height: 1.7; letter-spacing: .5px; margin-bottom: 22px;
-    }
-    #confirm-msg strong { color: var(--text); }
-    .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
-    .confirm-cancel {
-      background: none; border: 1px solid var(--border); color: var(--text-dim);
-      font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px;
-      padding: 7px 18px; border-radius: 2px; cursor: pointer; transition: all .2s;
-      pointer-events: auto; position: relative; z-index: 210;
-    }
-    .confirm-cancel:hover { border-color: var(--text-dim); color: var(--text); }
-    .confirm-ok {
-      background: var(--red); border: none; color: #fff;
-      font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px;
-      padding: 7px 18px; border-radius: 2px; cursor: pointer;
-      box-shadow: 0 0 12px rgba(255,68,68,.35); transition: all .2s;
-      pointer-events: auto; position: relative; z-index: 210;
-    }
-    .confirm-ok:hover { background: #ff2222; box-shadow: 0 0 20px rgba(255,68,68,.55); }
-    #confirm-box { pointer-events: auto; }
-    #confirm-overlay.visible * { pointer-events: auto; }
-
-    /* ── NODE CONTEXT MENU ── */
-    #node-ctx-menu {
-      position: fixed; z-index: 9100;
-      background: rgba(8,8,0,.96); border: 1px solid rgba(255,90,0,.4);
-      border-radius: 3px; padding: 6px 0;
-      box-shadow: 0 0 20px rgba(255,90,0,.15);
-      font-family: var(--font-mono); font-size: 10px;
-      min-width: 180px;
-      display: none;
-    }
-    #node-ctx-menu.visible { display: block; }
-    .ctx-header {
-      padding: 5px 14px 7px; font-size: 9px; color: var(--orange);
-      letter-spacing: 2px; border-bottom: 1px solid var(--border);
-      margin-bottom: 4px; white-space: nowrap; overflow: hidden;
-      text-overflow: ellipsis; max-width: 200px;
-    }
-    .ctx-item {
-      padding: 7px 14px; color: var(--text-dim); cursor: none;
-      letter-spacing: 1px; transition: all .15s; display: flex; align-items: center; gap: 8px;
-    }
-    .ctx-item:hover { background: rgba(255,90,0,.07); color: var(--text); }
-    .ctx-item.danger { color: rgba(255,68,68,.75); }
-    .ctx-item.danger:hover { background: rgba(255,68,68,.08); color: var(--red); }
-    .ctx-icon { font-size: 12px; width: 14px; text-align: center; }
   </style>
 </head>
 <body>
@@ -686,7 +664,6 @@
     </div>
 
     <div class="header-right">
-      <button id="clear-db-btn" title="Purge all indexed data for this workspace">⚠ CLEAR DB</button>
       <div class="header-ascii">
         <span>&gt;&gt;</span>
         <span class="ascii-blink">_</span>
@@ -696,25 +673,6 @@
       </div>
     </div>
   </header>
-
-  <!-- ── CONFIRM MODAL ── -->
-  <div id="confirm-overlay">
-    <div id="confirm-box">
-      <div id="confirm-title">CONFIRM DELETE</div>
-      <div id="confirm-msg">Loading…</div>
-      <div class="confirm-actions">
-        <button class="confirm-cancel" id="confirm-cancel-btn">CANCEL</button>
-        <button class="confirm-ok" id="confirm-ok-btn">DELETE</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── NODE CONTEXT MENU ── -->
-  <div id="node-ctx-menu">
-    <div class="ctx-header" id="ctx-node-label">NODE</div>
-    <div class="ctx-item" id="ctx-info-btn"><span class="ctx-icon">ℹ</span> NODE INFO</div>
-    <div class="ctx-item danger" id="ctx-delete-btn"><span class="ctx-icon">✕</span> DELETE FROM DB</div>
-  </div>
 
   <main id="app">
 
@@ -834,26 +792,68 @@
             <span class="popup-title">DATA INGESTION</span>
             <button class="popup-close" id="popup-close-btn">✕ CLOSE</button>
           </div>
-          <div class="popup-drop-zone clickable" id="popup-drop-zone">
-            <div class="popup-drop-left">
-              <div class="popup-drop-icon">⬆</div>
-              <div class="popup-drop-text">
-                <strong>Drop files here or click to upload</strong>
-                Each file becomes a node in your knowledge graph
-                <div class="file-tags">
-                  <span class="file-tag">PDF</span><span class="file-tag">TXT</span>
-                  <span class="file-tag">DOCX</span><span class="file-tag">MD</span>
-                  <span class="file-tag">CSV</span><span class="file-tag">EPUB</span>
+
+          <!-- TABS -->
+          <div class="popup-tabs">
+            <button class="popup-tab active" data-tab="tab-files">⬆ FILES</button>
+            <button class="popup-tab" data-tab="tab-url">⊕ URL</button>
+            <button class="popup-tab" data-tab="tab-audio">◉ AUDIO</button>
+          </div>
+
+          <!-- TAB: FILES -->
+          <div class="popup-panel active" id="tab-files">
+            <div class="popup-drop-zone clickable" id="popup-drop-zone">
+              <div class="popup-drop-left">
+                <div class="popup-drop-icon">⬆</div>
+                <div class="popup-drop-text">
+                  <strong>Drop files here or click to upload</strong>
+                  Each file becomes a node in your knowledge graph
+                  <div class="file-tags">
+                    <span class="file-tag">PDF</span><span class="file-tag">TXT</span>
+                    <span class="file-tag">DOCX</span><span class="file-tag">MD</span>
+                    <span class="file-tag">CSV</span><span class="file-tag">EPUB</span>
+                  </div>
                 </div>
               </div>
+              <button id="upload-select-btn">SELECT FILES</button>
             </div>
-            <button id="upload-select-btn">SELECT FILES</button>
+            <div id="popup-file-list"></div>
           </div>
-          <div id="popup-file-list"></div>
+
+          <!-- TAB: URL -->
+          <div class="popup-panel" id="tab-url">
+            <div class="url-row">
+              <input id="url-input" type="url" placeholder="https://example.com/article" spellcheck="false" autocomplete="off" />
+              <button id="url-ingest-btn">INGEST</button>
+            </div>
+            <div id="url-status"></div>
+          </div>
+
+          <!-- TAB: AUDIO -->
+          <div class="popup-panel" id="tab-audio">
+            <div class="audio-panel-inner">
+              <div class="audio-record-zone" id="audio-record-zone">
+                <button id="record-btn">⏺ START RECORDING</button>
+                <div class="record-meta">
+                  <div class="record-timer" id="record-timer">00:00</div>
+                  <div id="record-hint">Click to record — saves as WAV on stop</div>
+                </div>
+              </div>
+              <div class="audio-or">— OR UPLOAD FILE —</div>
+              <div class="audio-upload-row">
+                <button id="audio-upload-btn">CHOOSE FILE</button>
+                <span id="audio-selected-name">No file selected</span>
+                <button id="audio-index-btn" disabled>INDEX</button>
+              </div>
+              <div id="audio-status"></div>
+            </div>
+          </div>
+
         </div>
       </div>
 
       <input type="file" id="file-input-hidden" multiple accept=".pdf,.txt,.doc,.docx,.md,.csv,.epub">
+      <input type="file" id="audio-file-input" accept=".mp3,.wav,.ogg,.webm,.m4a,.flac">
     </section>
 
 
@@ -880,8 +880,7 @@
     localStorage.setItem('sb_workspace', wsInput.value.trim() || 'default');
     // Reload graph nodes for new workspace
     if (typeof restoreGraphNodes === 'function') {
-      docNodes.splice(0, docNodes.length);
-      particles.splice(0, particles.length);
+      docNodes.length = 0;
       document.getElementById('node-count').textContent = '0';
       restoreGraphNodes();
     }
@@ -1005,6 +1004,9 @@
   }
 
   let isChatLoading = false;
+  /* Conversation history — persists for the entire page session so the AI
+     can reference earlier messages. Each entry: { role: 'user'|'assistant', content: string } */
+  let chatHistory = [];
 
   async function sendChatMessage() {
     const text = msgInput.value.trim();
@@ -1016,19 +1018,17 @@
     typingInd.classList.add('visible');
     chatMsgs.scrollTop = chatMsgs.scrollHeight;
 
+    // Add user turn to history BEFORE sending
+    chatHistory.push({ role: 'user', content: text });
+
     try {
-      /*
-        POST /api/chat
-        Body: { workspace_id, message, app_identity, custom_rules }
-        The backend auto-detects if this is a timeline request and returns
-        is_timeline_request: true + the markdown in response/timeline_data.
-      */
       const res = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspace_id: getWorkspace(),
           message: text,
+          history: chatHistory.slice(-20), // last 20 turns max to avoid huge payloads
           app_identity: 'Second Brain',
           custom_rules: 'Be concise. Use structured formatting where helpful.'
         })
@@ -1039,16 +1039,23 @@
 
       typingInd.classList.remove('visible');
 
+      let assistantText = '';
       if (data.is_timeline_request && data.timeline_data) {
-        /* Render the returned markdown as a nicely formatted bubble */
         appendMsg(renderTimelineMarkdown(data.timeline_data), 'ai', true);
+        assistantText = data.timeline_data;
       } else {
-        appendMsg(data.response || '(empty response)', 'ai');
+        assistantText = data.response || '(empty response)';
+        appendMsg(assistantText, 'ai');
       }
+
+      // Add assistant reply to history so next turn can reference it
+      chatHistory.push({ role: 'assistant', content: assistantText });
 
     } catch (err) {
       typingInd.classList.remove('visible');
       appendMsg(`⚠ API unreachable: ${err.message}. Is the backend running on ${API_BASE}?`, 'ai');
+      // Remove the user message we optimistically added since the send failed
+      chatHistory.pop();
     } finally {
       isChatLoading = false;
     }
@@ -1107,7 +1114,7 @@
       const result = await indexFile(f, statusEl);
       if (result.success) {
         indexed++;
-        addDocNode(baseName, ext, f.name);
+        addDocNode(baseName, ext);
         if (result.dates && result.dates.length) {
           showToast(`${baseName}: ${result.dates.length} DATE(S) EXTRACTED`);
         }
@@ -1187,16 +1194,13 @@
     return { orbitR, angle, speed };
   }
 
-  function addDocNode(name, ext, sourceId) {
+  function addDocNode(name, ext) {
     const idx = docNodes.length;
     const { orbitR, angle, speed } = getOrbitParams(idx);
     const r = 14;  // fixed radius so all nodes are same size — no overlap risk
-    // sourceId is the full filename used in ChromaDB; label is truncated for display
-    const fullId = sourceId || (name + (ext ? '.' + ext.toLowerCase() : ''));
     docNodes.push({
       id: 'n' + Date.now() + idx,
       label: name.length > 10 ? name.slice(0, 9) + '…' : name,
-      sourceId: fullId,
       ext: ext.toUpperCase(),
       x: cx + Math.cos(angle) * orbitR,
       y: cy + Math.sin(angle) * orbitR,
@@ -1217,7 +1221,7 @@
       data.nodes.forEach(n => {
         const ext  = n.source_type.toLowerCase();
         const name = n.source_id.replace(/\.[^.]+$/, '');
-        addDocNode(name, ext, n.source_id);
+        addDocNode(name, ext);
       });
       if (data.nodes.length) showToast(`RESTORED ${data.nodes.length} NODE(S)`);
     } catch (_) {}
@@ -1289,14 +1293,8 @@
   mainC.addEventListener('click', e => {
     const r=mainC.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
     const wx=(mx-panX)/zoom, wy=(my-panY)/zoom;
-    if(Math.hypot(wx-coreNode.x,wy-coreNode.y)<coreNode.r+8){hideNodeCtx();toggleUploadPopup();return;}
-    for(const n of docNodes){
-      if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){
-        showNodeCtx(n, e.clientX, e.clientY);
-        return;
-      }
-    }
-    hideNodeCtx(); // click empty space — close menu
+    if(Math.hypot(wx-coreNode.x,wy-coreNode.y)<coreNode.r+8){toggleUploadPopup();return;}
+    for(const n of docNodes){ if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){showToast('NODE: '+n.label+'.'+n.ext.toLowerCase());return;} }
   });
   mainC.addEventListener('wheel', e => {
     e.preventDefault();
@@ -1377,6 +1375,11 @@
   tlFetchBtn.addEventListener('click', fetchTimeline);
 
   async function fetchTimeline() {
+    const ws = getWorkspace();
+    if (!ws) {
+      tlScroll.innerHTML = '<div class="tl-empty">SET A WORKSPACE ID FIRST<br><span style="opacity:.5;font-size:9px">Enter a workspace name in the header bar, then try again.</span></div>';
+      return;
+    }
     const startDate = document.getElementById('tl-start').value.trim() || null;
     const endDate   = document.getElementById('tl-end').value.trim()   || null;
 
@@ -1475,6 +1478,12 @@
   updateCalLabel();
 
   async function fetchCalendar() {
+    const ws = getWorkspace();
+    if (!ws) {
+      const daysEl = document.getElementById('cal-days');
+      daysEl.innerHTML = '<div class="tl-empty" style="grid-column:1/-1">SET A WORKSPACE ID FIRST<br><span style="opacity:.5;font-size:9px">Enter a workspace name in the header bar, then try again.</span></div>';
+      return;
+    }
     const loading = document.getElementById('cal-loading');
     const daysEl  = document.getElementById('cal-days');
     daysEl.innerHTML = '';
@@ -1551,181 +1560,152 @@
   buildCalGrid({});
 
   /* ══════════════════════════════════════════════════════════════════
-     CONFIRM MODAL HELPER
-     showConfirm(msg, onOk) — shows the modal, calls onOk() if confirmed.
+     UPLOAD POPUP TABS
   ══════════════════════════════════════════════════════════════════ */
-  const confirmOverlay  = document.getElementById('confirm-overlay');
-  const confirmMsg      = document.getElementById('confirm-msg');
-  const confirmOkBtn    = document.getElementById('confirm-ok-btn');
-  const confirmCancelBtn= document.getElementById('confirm-cancel-btn');
-  let _confirmCallback  = null;
-
-  function showConfirm(msgHTML, onOk) {
-    confirmMsg.innerHTML = msgHTML;
-    _confirmCallback = onOk;
-    confirmOverlay.classList.add('visible');
-  }
-  function hideConfirm() {
-    confirmOverlay.classList.remove('visible');
-    _confirmCallback = null;
-  }
-  confirmCancelBtn.addEventListener('click', hideConfirm);
-  // Use mousedown instead of click to avoid pointer-events timing issues
-  confirmOkBtn.addEventListener('mousedown', (e) => {
-    e.stopPropagation();
-    console.log('[SB] confirm OK clicked, callback:', !!_confirmCallback);
-    const cb = _confirmCallback;
-    hideConfirm();
-    if (cb) cb();
-  });
-  confirmCancelBtn.addEventListener('mousedown', (e) => {
-    e.stopPropagation();
-    hideConfirm();
-  });
-  confirmOverlay.addEventListener('mousedown', e => { if (e.target === confirmOverlay) hideConfirm(); });
-
-  /* ══════════════════════════════════════════════════════════════════
-     CLEAR ENTIRE WORKSPACE DB
-     Header button → confirm modal → DELETE /api/workspace/{id}
-  ══════════════════════════════════════════════════════════════════ */
-  function resetTimelineUI() {
-    const tlScroll = document.getElementById('timeline-scroll');
-    const tlStats  = document.getElementById('tl-stats');
-    if (tlScroll) tlScroll.innerHTML = '<div class="tl-empty">NO TIMELINE DATA<br><span style="opacity:.5;font-size:9px">Index documents then press FETCH</span></div>';
-    if (tlStats)  tlStats.textContent = '';
-  }
-
-  function resetCalendarUI() {
-    calEvents = {};
-    buildCalGrid({});
-    const detail = document.getElementById('cal-day-detail');
-    if (detail) detail.innerHTML = '<div class="detail-title">SELECT A DAY</div>';
-  }
-
-  function wipeGraphVisuals() {
-    docNodes.splice(0, docNodes.length);
-    particles.splice(0, particles.length);
-    document.getElementById('node-count').textContent = '0';
-    document.getElementById('graph-hint').style.opacity = '1';
-    resetTimelineUI();
-    resetCalendarUI();
-  }
-
-  document.getElementById('clear-db-btn').addEventListener('click', () => {
-    console.log('[SB] CLEAR DB clicked');
-    const ws = getWorkspace();
-    showConfirm(
-      `This will permanently delete <strong>ALL indexed data</strong> for workspace <strong>${ws}</strong>.<br><br>This cannot be undone. You will need to re-upload all documents.`,
-      async () => {
-        try {
-          const res = await fetch(`${API_BASE}/api/workspace/${encodeURIComponent(ws)}`, { method: 'DELETE' });
-          const data = await res.json();
-          // 404 = collection already empty — treat as success
-          if (!res.ok && res.status !== 404) throw new Error(data.detail || `HTTP ${res.status}`);
-        } catch (err) {
-          showToast('API ERROR: ' + err.message, true);
-        }
-        // Wipe graph nodes and particles
-        docNodes.splice(0, docNodes.length);
-        particles.splice(0, particles.length);
-        document.getElementById('node-count').textContent = '0';
-        document.getElementById('graph-hint').style.opacity = '1';
-        // Immediately overwrite timeline with empty state — don't call fetchTimeline
-        // because the backend may need a moment; just show the empty placeholder directly
-        const tlScroll = document.getElementById('timeline-scroll');
-        const tlStats  = document.getElementById('tl-stats');
-        if (tlScroll) tlScroll.innerHTML = '<div class="tl-empty">NO TIMELINE DATA<br><span style="opacity:.5;font-size:9px">Index documents then press FETCH</span></div>';
-        if (tlStats)  tlStats.textContent = '';
-        // Wipe calendar
-        calEvents = {};
-        buildCalGrid({});
-        showToast('DB CLEARED — ALL DATA PURGED', true);
-      }
-    );
+  document.querySelectorAll('.popup-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.popup-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.popup-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    });
   });
 
   /* ══════════════════════════════════════════════════════════════════
-     NODE CONTEXT MENU
-     Left-click on a doc node opens the context menu.
-     Menu has: Node Info (toast) and Delete from DB.
+     URL INGESTION
   ══════════════════════════════════════════════════════════════════ */
-  const nodeCtxMenu  = document.getElementById('node-ctx-menu');
-  const ctxNodeLabel = document.getElementById('ctx-node-label');
-  let ctxTargetNode  = null;
+  const urlInput     = document.getElementById('url-input');
+  const urlIngestBtn = document.getElementById('url-ingest-btn');
+  const urlStatus    = document.getElementById('url-status');
 
-  function showNodeCtx(node, screenX, screenY) {
-    ctxTargetNode = node;
-    ctxNodeLabel.textContent = node.label + '.' + node.ext.toLowerCase();
-    // Position near click, keep within viewport
-    const menuW = 200, menuH = 90;
-    const x = Math.min(screenX + 8, window.innerWidth  - menuW - 10);
-    const y = Math.min(screenY + 8, window.innerHeight - menuH - 10);
-    nodeCtxMenu.style.left = x + 'px';
-    nodeCtxMenu.style.top  = y + 'px';
-    nodeCtxMenu.classList.add('visible');
+  async function ingestUrl() {
+    const url = urlInput.value.trim();
+    if (!url) { urlStatus.textContent = 'ENTER A URL FIRST'; urlStatus.className = 'err'; return; }
+    urlIngestBtn.disabled = true;
+    urlStatus.textContent = 'SCRAPING + INDEXING…'; urlStatus.className = 'busy';
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_id: getWorkspace(), url })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      urlStatus.textContent = `✓ INDEXED ${data.message.match(/\d+ words/)?.[0] || ''} FROM URL`;
+      urlStatus.className = 'ok';
+      urlInput.value = '';
+      // Add node to graph
+      const urlLabel = url.replace(/^https?:\/\//, '').split('/')[0];
+      addDocNode(urlLabel.length > 10 ? urlLabel.slice(0,9)+'…' : urlLabel, 'WEB', url);
+      document.getElementById('node-count').textContent = docNodes.length;
+      showToast('URL INDEXED: ' + urlLabel);
+    } catch (err) {
+      urlStatus.textContent = 'ERROR: ' + err.message;
+      urlStatus.className = 'err';
+    } finally {
+      urlIngestBtn.disabled = false;
+    }
   }
-  function hideNodeCtx() {
-    nodeCtxMenu.classList.remove('visible');
-    ctxTargetNode = null;
-  }
 
-  document.getElementById('ctx-info-btn').addEventListener('click', () => {
-    if (!ctxTargetNode) return;
-    showToast('NODE: ' + ctxTargetNode.label + '.' + ctxTargetNode.ext.toLowerCase());
-    hideNodeCtx();
-  });
+  urlIngestBtn.addEventListener('click', ingestUrl);
+  urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') ingestUrl(); });
 
-  document.getElementById('ctx-delete-btn').addEventListener('click', () => {
-    const node = ctxTargetNode;
-    hideNodeCtx();
-    if (!node) return;
-    const fullName = node.label + (node.ext ? '.' + node.ext.toLowerCase() : '');
-    showConfirm(
-      `Delete <strong>${fullName}</strong> from workspace <strong>${getWorkspace()}</strong>?<br><br>All indexed chunks for this file will be permanently removed.`,
-      async () => {
-        try {
-          const ws = getWorkspace();
-          // Use the stored full source_id (set when node was created)
-          const sourceId = node.sourceId || (node.label + (node.ext ? '.' + node.ext.toLowerCase() : ''));
-          const res = await fetch(
-            `${API_BASE}/api/node/${encodeURIComponent(ws)}/${encodeURIComponent(sourceId)}`,
-            { method: 'DELETE' }
-          );
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
-          // Remove from visual graph
-          const idx = docNodes.indexOf(node);
-          if (idx !== -1) {
-            docNodes.splice(idx, 1);
-            // Re-index remaining nodes so orbits stay clean
-            docNodes.forEach((n, i) => {
-              const { orbitR, speed } = getOrbitParams(i);
-              n.orbitR = orbitR; n.speed = speed;
-            });
-            document.getElementById('node-count').textContent = docNodes.length;
-          }
-          showToast(`DELETED: ${sourceId}`);
-          // Immediately clear timeline DOM then re-fetch from the now-updated DB
-          const tlScroll = document.getElementById('timeline-scroll');
-          const tlStats  = document.getElementById('tl-stats');
-          if (tlScroll) tlScroll.innerHTML = '<div class="tl-empty">UPDATING…</div>';
-          if (tlStats)  tlStats.textContent = '';
-          calEvents = {}; buildCalGrid({});
-          // Small delay to let backend finish, then re-fetch
-          setTimeout(() => { if (typeof fetchTimeline === 'function') fetchTimeline(); }, 300);
-        } catch (err) {
-          showToast('ERROR: ' + err.message, true);
-        }
+  /* ══════════════════════════════════════════════════════════════════
+     AUDIO — RECORD + UPLOAD
+  ══════════════════════════════════════════════════════════════════ */
+  const recordBtn       = document.getElementById('record-btn');
+  const recordZone      = document.getElementById('audio-record-zone');
+  const recordTimer     = document.getElementById('record-timer');
+  const recordHint      = document.getElementById('record-hint');
+  const audioUploadBtn  = document.getElementById('audio-upload-btn');
+  const audioFileInput  = document.getElementById('audio-file-input');
+  const audioSelectedName = document.getElementById('audio-selected-name');
+  const audioIndexBtn   = document.getElementById('audio-index-btn');
+  const audioStatus     = document.getElementById('audio-status');
+
+  let mediaRecorder = null, audioChunks = [], recordInterval = null, recordSeconds = 0;
+  let pendingAudioFile = null;
+
+  function formatTime(s) { return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); }
+
+  recordBtn.addEventListener('click', async () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      // STOP
+      mediaRecorder.stop();
+    } else {
+      // START
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = []; recordSeconds = 0;
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          clearInterval(recordInterval);
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(audioChunks, { type: 'audio/webm' });
+          const fname = `recording-${Date.now()}.webm`;
+          pendingAudioFile = new File([blob], fname, { type: 'audio/webm' });
+          audioSelectedName.textContent = fname;
+          audioIndexBtn.disabled = false;
+          recordBtn.textContent = '⏺ START RECORDING';
+          recordBtn.classList.remove('recording');
+          recordZone.classList.remove('recording');
+          recordTimer.classList.remove('recording');
+          recordHint.textContent = 'Recording saved — press INDEX to upload';
+          audioStatus.textContent = ''; audioStatus.className = '';
+        };
+        mediaRecorder.start();
+        recordBtn.textContent = '⏹ STOP RECORDING';
+        recordBtn.classList.add('recording');
+        recordZone.classList.add('recording');
+        recordTimer.classList.add('recording');
+        recordHint.textContent = 'Recording in progress…';
+        recordInterval = setInterval(() => {
+          recordSeconds++;
+          recordTimer.textContent = formatTime(recordSeconds);
+        }, 1000);
+      } catch (err) {
+        audioStatus.textContent = 'MIC ACCESS DENIED: ' + err.message;
+        audioStatus.className = 'err';
       }
-    );
+    }
   });
 
-  // Close context menu on outside click or Escape
-  document.addEventListener('click', e => {
-    if (!nodeCtxMenu.contains(e.target)) hideNodeCtx();
+  audioUploadBtn.addEventListener('click', () => audioFileInput.click());
+  audioFileInput.addEventListener('change', () => {
+    if (audioFileInput.files[0]) {
+      pendingAudioFile = audioFileInput.files[0];
+      audioSelectedName.textContent = pendingAudioFile.name;
+      audioIndexBtn.disabled = false;
+      audioStatus.textContent = ''; audioStatus.className = '';
+    }
   });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { hideNodeCtx(); hideConfirm(); }
+
+  audioIndexBtn.addEventListener('click', async () => {
+    if (!pendingAudioFile) return;
+    audioIndexBtn.disabled = true;
+    audioStatus.textContent = 'TRANSCRIBING + INDEXING…'; audioStatus.className = 'busy';
+    try {
+      const form = new FormData();
+      form.append('workspace_id', getWorkspace());
+      form.append('file', pendingAudioFile, pendingAudioFile.name);
+      const res = await fetch(`${API_BASE}/api/ingest-audio`, { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      audioStatus.textContent = `✓ ${data.message}`;
+      audioStatus.className = 'ok';
+      const baseName = pendingAudioFile.name.replace(/\.[^.]+$/, '');
+      addDocNode(baseName.length > 10 ? baseName.slice(0,9)+'…' : baseName, 'AUDIO', pendingAudioFile.name);
+      document.getElementById('node-count').textContent = docNodes.length;
+      showToast('AUDIO INDEXED: ' + pendingAudioFile.name);
+      pendingAudioFile = null;
+      audioSelectedName.textContent = 'No file selected';
+      recordTimer.textContent = '00:00';
+    } catch (err) {
+      audioStatus.textContent = 'ERROR: ' + err.message;
+      audioStatus.className = 'err';
+      audioIndexBtn.disabled = false;
+    }
   });
 
   /* ══════════════════════════════════════════════════════════════════

@@ -32,3 +32,8 @@ llama-index-embeddings-huggingface>=0.1.0
 # Async utilities
 aiofiles>=23.0.0
 httpx>=0.24.0
+
+
+
+
+google-cloud-speech

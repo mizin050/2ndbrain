@@ -38,8 +38,12 @@ except ImportError:
 # =====================================================================
 # 1. INITIALIZATION & STORAGE ENGINE SETUP
 # =====================================================================
-DB_PATH = os.getenv("DATABASE_PATH", "./chroma_db") 
+# Always resolve DB_PATH relative to THIS file so location never changes
+# regardless of which directory api.py is launched from
+_ai_layer_dir = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.getenv("DATABASE_PATH") or os.path.join(_ai_layer_dir, "chroma_db")
 os.makedirs(DB_PATH, exist_ok=True)
+print(f"💾 ChromaDB path: {DB_PATH}")
 
 # Only initialize llama_index if available
 if HAS_LLAMA_INDEX:
@@ -309,44 +313,44 @@ def extract_dates_from_text(text: str) -> list:
 # =====================================================================
 def index_data(workspace_id: str, raw_text: str, source_id: str, source_type: str):
     """
-    Tokenizes raw text strings into structured metadata nodes, generates
-    embeddings automatically, and saves them to the chosen workspace's vector collection.
+    Tokenizes raw text into chunks, stamps EVERY chunk with shared metadata
+    (source_id, source_type, first_mentioned_date), then stores in ChromaDB.
+    LlamaIndex does NOT propagate custom metadata to child nodes by default —
+    we do it explicitly here so timeline/calendar queries work correctly.
     """
     if not raw_text.strip():
         return
 
-   
     chroma_collection = chroma_client.get_or_create_collection(name=workspace_id)
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-    # Extract temporal metadata
+    # Extract temporal metadata from full document text
     extracted_dates = extract_dates_from_text(raw_text)
     first_date = extracted_dates[0].isoformat() if extracted_dates else None
-    
-    # Create document with enriched metadata
-    document = Document(
-        text=raw_text,
-        metadata={
-            "source_id": source_id, 
-            "source_type": source_type,
-            "ingestion_timestamp": datetime.now().isoformat(),  # When it was added
-            "first_mentioned_date": first_date,  # Earliest date mentioned in content
-            "mentioned_dates_count": len(extracted_dates)
-        }
-    )
 
-    # Token-based semantic chunk splitter (600 tokens chunk size, 60 tokens overlap)
+    # Shared metadata stamped on every chunk
+    shared_metadata = {
+        "source_id": source_id,
+        "source_type": source_type,
+        "ingestion_timestamp": datetime.now().isoformat(),
+        "first_mentioned_date": first_date,
+        "mentioned_dates_count": len(extracted_dates)
+    }
+
+    document = Document(text=raw_text, metadata=shared_metadata)
+
+    # Split then explicitly copy metadata to every child node
     text_splitter = TokenTextSplitter(chunk_size=600, chunk_overlap=60)
     nodes = text_splitter.get_nodes_from_documents([document])
+    for node in nodes:
+        node.metadata.update(shared_metadata)
 
-    
-    VectorStoreIndex.from_documents(
-        documents=[document],
+    # Index pre-built nodes (avoids double-splitting)
+    VectorStoreIndex(
+        nodes=nodes,
         storage_context=storage_context,
-        transformations=[text_splitter]
     )
-
 # =====================================================================
 # 3.5 TIMELINE SYNTHESIS LAYER
 # =====================================================================
@@ -369,33 +373,38 @@ def generate_timeline(workspace_id: str, start_date: str = None, end_date: str =
         if not all_results["metadatas"]:
             return "No timeline data available. No documents have been indexed yet."
         
-        # Filter and sort by mentioned dates
-        timeline_events = []
+        # Deduplicate by source_id — keep earliest date and first excerpt per file
+        seen = {}  # source_id -> event dict
         for metadata, doc_text in zip(all_results["metadatas"], all_results["documents"]):
             first_date_str = metadata.get("first_mentioned_date")
-            if first_date_str:
-                try:
-                    event_date = datetime.fromisoformat(first_date_str)
-                    
-                    # Apply date range filter if provided
-                    if start_date:
-                        start = datetime.fromisoformat(start_date)
-                        if event_date < start:
-                            continue
-                    if end_date:
-                        end = datetime.fromisoformat(end_date)
-                        if event_date > end:
-                            continue
-                    
-                    timeline_events.append({
+            if not first_date_str:
+                continue
+            try:
+                event_date = datetime.fromisoformat(first_date_str)
+
+                # Apply date range filter if provided
+                if start_date:
+                    start = datetime.fromisoformat(start_date)
+                    if event_date < start:
+                        continue
+                if end_date:
+                    end = datetime.fromisoformat(end_date)
+                    if event_date > end:
+                        continue
+
+                sid = metadata.get("source_id", "Unknown")
+                if sid not in seen or event_date < seen[sid]["date"]:
+                    seen[sid] = {
                         "date": event_date,
-                        "source_id": metadata.get("source_id", "Unknown"),
+                        "source_id": sid,
                         "source_type": metadata.get("source_type", "Unknown"),
                         "ingestion_time": metadata.get("ingestion_timestamp", "Unknown"),
                         "excerpt": doc_text[:150] + "..." if len(doc_text) > 150 else doc_text
-                    })
-                except:
-                    pass
+                    }
+            except:
+                pass
+
+        timeline_events = list(seen.values())
         
         if not timeline_events:
             return f"No events found in timeline (range: {start_date} to {end_date})"

@@ -634,6 +634,144 @@
       border: 1px solid rgba(255,90,0,.3); border-radius: 2px; white-space: nowrap;
     }
     #cal-loading.visible { display: block; }
+
+  /* ══════════════════════════════════════════════════════════════════
+     MOBILE / TABLET  ≤ 768px
+     - Graph panel fills full screen
+     - Chat is a bottom sheet that floats over the graph
+     - Text input always visible at bottom centre
+  ══════════════════════════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+
+    /* Hide custom cursor on touch */
+    #cursor, #cursor-ring { display: none !important; }
+    * { cursor: auto !important; }
+
+    /* Stack panels — graph takes full screen, chat hides */
+    #app {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+      position: relative;
+    }
+    #app::after { display: none; }
+
+    /* Graph fills everything */
+    #graph-panel {
+      grid-row: 1; grid-column: 1;
+      height: 100vh; width: 100vw;
+      padding-top: 56px;
+      z-index: 1;
+    }
+
+    /* Chat panel becomes a bottom sheet */
+    #chat-panel {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      height: auto;
+      max-height: 72vh;
+      z-index: 200;
+      padding: 0;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      pointer-events: none; /* let touches pass through to graph by default */
+      overflow: visible;
+    }
+
+    /* Hide chat header on mobile */
+    .chat-header { display: none; }
+
+    /* Messages area — hidden when collapsed, grows when open */
+    #chat-messages {
+      pointer-events: auto;
+      background: rgba(8,8,0,.96);
+      border-top: 1px solid rgba(255,90,0,.25);
+      border-left: 1px solid rgba(255,90,0,.12);
+      border-right: 1px solid rgba(255,90,0,.12);
+      margin: 0 12px;
+      border-radius: 6px 6px 0 0;
+      padding: 12px 12px 8px;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .4s cubic-bezier(.23,1,.32,1), padding .3s;
+      gap: 10px;
+      backdrop-filter: blur(12px);
+    }
+    #chat-messages.mob-open {
+      max-height: 55vh;
+      overflow-y: auto;
+      padding: 12px 12px 8px;
+    }
+
+    /* Close chat button — only on mobile */
+    #mob-chat-close {
+      display: flex;
+      align-self: flex-end;
+      margin: 0 12px 4px;
+      background: none;
+      border: 1px solid rgba(255,90,0,.3);
+      color: rgba(255,90,0,.7);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 2px;
+      padding: 3px 10px;
+      border-radius: 2px;
+      pointer-events: auto;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    #mob-chat-close.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Input area — always visible, floats at bottom */
+    #chat-input-area {
+      pointer-events: auto;
+      margin: 0 12px 16px;
+      padding-top: 0;
+      border-top: none;
+      background: rgba(8,8,0,.92);
+      border: 1px solid rgba(255,90,0,.3);
+      border-radius: 6px;
+      padding: 10px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 -4px 32px rgba(255,90,0,.12), 0 8px 32px rgba(0,0,0,.6);
+      transition: box-shadow .3s;
+    }
+    #chat-input-area.mob-active {
+      box-shadow: 0 -4px 40px rgba(255,90,0,.22), 0 8px 32px rgba(0,0,0,.6);
+      border-color: rgba(255,90,0,.5);
+    }
+
+    /* Input hint smaller on mobile */
+    .input-hint { font-size: 8px; }
+
+    /* Header compact on mobile */
+    #header {
+      height: 48px;
+      padding: 0 12px;
+    }
+    .logo { font-size: 13px; }
+    .logo-dot { width: 6px; height: 6px; }
+    .header-ascii { display: none; }
+    #workspace-bar label { font-size: 9px; }
+    #workspace-input { width: 90px; font-size: 10px; padding: 3px 7px; }
+
+    /* Graph header smaller */
+    .graph-header { padding: 0 16px 8px; }
+    .section-title { font-size: 24px; }
+    .section-label { font-size: 9px; }
+
+    /* Node badge repositioned */
+    #node-badge { top: 8px; right: 12px; font-size: 8px; }
+
+    /* Drawer full-width on mobile */
+    #data-drawer { left: 0; right: 0; }
+  }
+
   </style>
 </head>
 <body>
@@ -703,6 +841,7 @@
         </div>
       </div>
 
+      <button id="mob-chat-close">✕ CLOSE CHAT</button>
       <div id="chat-input-area">
         <div class="input-container">
           <textarea id="msg-input" rows="1" placeholder="Query the neural network..."></textarea>
@@ -767,7 +906,7 @@
                 <button class="cal-nav-btn" id="cal-prev">‹</button>
                 <span id="cal-month-label">JUNE 2026</span>
                 <button class="cal-nav-btn" id="cal-next">›</button>
-                <button class="cal-fetch-btn" id="cal-fetch-btn">LOAD</button>
+
               </div>
               <div id="cal-loading">LOADING CALENDAR…</div>
               <div id="calendar-grid-wrap">
@@ -859,6 +998,55 @@
 
 
   </main>
+
+  <!-- ═══ NODE PREVIEW MODAL ═══ -->
+  <div id="node-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+    <div id="node-panel" style="position:relative;width:420px;max-width:90vw;background:rgba(8,8,0,.98);border:1px solid rgba(255,90,0,.35);box-shadow:0 0 40px rgba(255,90,0,.12);padding:28px 28px 24px;font-family:var(--font-body);">
+      <!-- top bar -->
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+        <div id="node-panel-icon" style="width:44px;height:44px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:1px;flex-shrink:0;background:#FF5A00;color:#fff;">NODE</div>
+        <div style="flex:1;min-width:0;">
+          <div id="node-panel-title" style="font-family:var(--font-display);font-size:15px;letter-spacing:1.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+          <div id="node-panel-meta" style="margin-top:6px;display:flex;flex-direction:column;gap:3px;"></div>
+        </div>
+        <button id="node-panel-close" style="background:none;border:1px solid rgba(255,90,0,.3);color:rgba(255,90,0,.7);font-family:var(--font-mono);font-size:10px;letter-spacing:2px;padding:5px 10px;cursor:none;border-radius:2px;transition:all .2s;flex-shrink:0;">✕</button>
+      </div>
+      <!-- preview text -->
+      <pre id="node-preview-text" style="font-family:var(--font-mono);font-size:10px;line-height:1.7;color:rgba(255,255,255,.55);background:rgba(255,90,0,.03);border:1px solid rgba(255,90,0,.1);padding:14px;white-space:pre-wrap;word-break:break-word;max-height:160px;overflow-y:auto;margin:0 0 20px;border-radius:2px;scrollbar-width:thin;scrollbar-color:rgba(255,90,0,.3) transparent;"></pre>
+      <!-- delete button -->
+      <button id="node-delete-btn" style="width:100%;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;padding:10px;cursor:none;border-radius:2px;text-transform:uppercase;transition:all .2s;border:1px solid rgba(255,90,0,.4);color:rgba(255,90,0,.8);background:rgba(255,90,0,.06);">🗑 DELETE NODE</button>
+    </div>
+  </div>
+
+  <!-- ═══ CHAT LOG MODAL ═══ -->
+  <div id="log-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+    <div style="position:relative;width:560px;max-width:92vw;max-height:80vh;background:rgba(8,8,0,.98);border:1px solid rgba(255,90,0,.35);box-shadow:0 0 40px rgba(255,90,0,.12);display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid rgba(255,90,0,.15);">
+        <span style="font-family:var(--font-display);font-size:16px;letter-spacing:2px;color:var(--text);">CHAT LOG</span>
+        <button id="log-close-btn" style="background:none;border:1px solid rgba(255,90,0,.3);color:rgba(255,90,0,.7);font-family:var(--font-mono);font-size:10px;letter-spacing:2px;padding:5px 10px;cursor:none;border-radius:2px;transition:all .2s;">✕ CLOSE</button>
+      </div>
+      <div id="log-entries" style="flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin;scrollbar-color:rgba(255,90,0,.3) transparent;"></div>
+    </div>
+  </div>
+
+  <style>
+    /* Node modal open state */
+    #node-modal.open, #log-modal.open { display:flex !important; }
+    /* node-meta rows */
+    .node-meta-row { display:flex; gap:8px; align-items:center; }
+    .node-meta-label { font-family:var(--font-mono); font-size:8px; letter-spacing:2px; color:rgba(255,90,0,.6); text-transform:uppercase; }
+    .node-meta-val { font-family:var(--font-mono); font-size:9px; color:rgba(255,255,255,.5); }
+    /* delete button danger variant */
+    #node-delete-btn.danger { border-color:rgba(255,60,60,.5); color:rgba(255,80,80,.9); background:rgba(255,40,40,.08); }
+    #node-delete-btn:hover { opacity:.85; }
+    /* log entries */
+    .log-entry { display:flex; gap:12px; align-items:flex-start; }
+    .log-role { font-family:var(--font-mono); font-size:8px; letter-spacing:2px; padding:4px 8px; border-radius:2px; flex-shrink:0; margin-top:2px; }
+    .log-role.user { background:rgba(255,90,0,.15); color:var(--orange); border:1px solid rgba(255,90,0,.3); }
+    .log-role.assistant { background:rgba(0,200,200,.1); color:#00c8c8; border:1px solid rgba(0,200,200,.25); }
+    .log-msg { font-family:var(--font-body); font-size:12px; color:rgba(255,255,255,.7); line-height:1.6; }
+    .log-ts { font-family:var(--font-mono); font-size:8px; color:rgba(255,255,255,.25); margin-top:4px; }
+  </style>
 
   <script>
   /* ══════════════════════════════════════════════════════════════════
@@ -1194,13 +1382,14 @@
     return { orbitR, angle, speed };
   }
 
-  function addDocNode(name, ext) {
+  function addDocNode(name, ext, fullId) {
     const idx = docNodes.length;
     const { orbitR, angle, speed } = getOrbitParams(idx);
     const r = 14;  // fixed radius so all nodes are same size — no overlap risk
     docNodes.push({
       id: 'n' + Date.now() + idx,
       label: name.length > 10 ? name.slice(0, 9) + '…' : name,
+      sourceId: fullId || name,  // full untruncated source_id for API calls
       ext: ext.toUpperCase(),
       x: cx + Math.cos(angle) * orbitR,
       y: cy + Math.sin(angle) * orbitR,
@@ -1219,9 +1408,10 @@
       if (!res.ok) return;
       const data = await res.json();
       data.nodes.forEach(n => {
-        const ext  = n.source_type.toLowerCase();
-        const name = n.source_id.replace(/\.[^.]+$/, '');
-        addDocNode(name, ext);
+        const ext      = n.source_type.toLowerCase();
+        const fullId   = n.source_id;                          // keep full id for delete
+        const dispName = fullId.replace(/\.[^.]+$/, '');       // strip ext for display only
+        addDocNode(dispName, ext, fullId);
       });
       if (data.nodes.length) showToast(`RESTORED ${data.nodes.length} NODE(S)`);
     } catch (_) {}
@@ -1294,7 +1484,14 @@
     const r=mainC.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
     const wx=(mx-panX)/zoom, wy=(my-panY)/zoom;
     if(Math.hypot(wx-coreNode.x,wy-coreNode.y)<coreNode.r+8){toggleUploadPopup();return;}
-    for(const n of docNodes){ if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){showToast('NODE: '+n.label+'.'+n.ext.toLowerCase());return;} }
+    for(const n of docNodes){ if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){openNodeModal(n);return;} }
+  });
+  mainC.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const r=mainC.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+    const wx=(mx-panX)/zoom, wy=(my-panY)/zoom;
+    if(Math.hypot(wx-coreNode.x,wy-coreNode.y)<coreNode.r+8){openNodeModal(coreNode);return;}
+    for(const n of docNodes){ if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){openNodeModal(n);return;} }
   });
   mainC.addEventListener('wheel', e => {
     e.preventDefault();
@@ -1430,21 +1627,37 @@
       const dateStr = lines[0] || 'Unknown Date';
 
       // Extract source and indexed fields from **bold** lines
-      let source = '', indexed = '', excerpt = '';
+      // Backend format: **Source:** `SOURCE_TYPE` (source_id)
+      let sourceRaw = '', sourceId = '', sourceType = '', indexed = '', excerpt = '';
       lines.slice(1).forEach(l => {
-        if (l.startsWith('**Source:**'))  source  = l.replace(/\*\*/g,'').replace('Source:','').trim();
+        if (l.startsWith('**Source:**')) {
+          sourceRaw = l.replace(/\*\*/g,'').replace('Source:','').trim();
+          // Extract type from backticks: `AUDIO`
+          const typeMatch = sourceRaw.match(/`([^`]+)`/);
+          if (typeMatch) sourceType = typeMatch[1];
+          // Extract source_id from parentheses: (recording.audio)
+          const idMatch = sourceRaw.match(/\(([^)]+)\)/);
+          if (idMatch) sourceId = idMatch[1];
+          // Fallback: whole string
+          if (!sourceId) sourceId = sourceRaw;
+        }
         if (l.startsWith('**Indexed:**')) indexed = l.replace(/\*\*/g,'').replace('Indexed:','').trim();
         if (l.startsWith('> '))           excerpt = l.slice(2);
       });
+      const displayName = sourceId || sourceRaw;
 
       const card = document.createElement('div');
       card.className = 'tl-event';
       card.style.animationDelay = (i * 0.06) + 's';
       card.innerHTML = `
         <div class="tl-date">${dateStr}</div>
-        <div class="tl-source"><span>${source}</span> &nbsp;·&nbsp; indexed ${indexed.slice(0,16)}</div>
+        <div class="tl-source"><span class="tl-source-link" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;opacity:.85;" title="Click to preview">${displayName}</span> &nbsp;·&nbsp; <span style="opacity:.5">${sourceType}</span> &nbsp;·&nbsp; indexed ${indexed.slice(0,16)}</div>
         ${excerpt ? `<div class="tl-excerpt">${excerpt}</div>` : ''}
       `;
+      card.querySelector('.tl-source-link').addEventListener('click', e => {
+        e.stopPropagation();
+        openNodeModalById(sourceId, sourceType);
+      });
       tlScroll.appendChild(card);
     });
   }
@@ -1470,7 +1683,6 @@
     calMonth++; if(calMonth>12){calMonth=1;calYear++;}
     updateCalLabel(); fetchCalendar();
   });
-  document.getElementById('cal-fetch-btn').addEventListener('click', fetchCalendar);
 
   function updateCalLabel() {
     document.getElementById('cal-month-label').textContent = `${MONTH_NAMES[calMonth-1]} ${calYear}`;
@@ -1536,9 +1748,11 @@
       cell.className = 'cal-day' + (isToday?' today':'') + (ev?' has-events':'');
       cell.innerHTML = `<span class="cal-day-num">${d}</span>${ev ? `<div class="cal-event-dot"></div><div class="cal-event-count">${ev.document_count}</div>` : ''}`;
 
-      if (ev) {
-        cell.addEventListener('click', () => showDayDetail(dateStr, ev));
-      }
+      cell.style.cursor='pointer';
+      cell.addEventListener('click', () => {
+        document.querySelectorAll('.cal-day.selected').forEach(c=>c.classList.remove('selected'));
+        cell.classList.add('selected'); showDayDetail(dateStr, ev||null);
+      });
       daysEl.appendChild(cell);
     }
   }
@@ -1548,12 +1762,13 @@
     Shows source_id, source_type, document count for the selected day.
   */
   function showDayDetail(dateStr, ev) {
-    const detail = document.getElementById('cal-day-detail');
-    detail.innerHTML = `
-      <div class="detail-title">// ${dateStr}</div>
-      <div class="detail-item">${ev.document_count} DOCUMENT(S) <span>· ${ev.source_type}</span></div>
-      <div class="detail-item" style="font-size:9px;opacity:.6">${ev.source_id}</div>
-    `;
+    const d = document.getElementById('cal-day-detail');
+    if (ev) {
+      d.innerHTML = `<div class="detail-title">// ${dateStr}</div><div class="detail-item">${ev.document_count} DOCUMENT(S) <span>· ${ev.source_type}</span></div><div class="detail-item" style="font-size:9px;opacity:.6"><span id="cal-source-link" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;" title="Click to preview">${ev.source_id}</span></div>`;
+      d.querySelector('#cal-source-link').addEventListener('click', () => openNodeModalById(ev.source_id, ev.source_type));
+    } else {
+      d.innerHTML = `<div class="detail-title">// ${dateStr}</div><div class="detail-item" style="opacity:.5">NO INDEXED DOCUMENTS ON THIS DATE</div>`;
+    }
   }
 
   // Build the grid immediately with empty events so the month structure shows
@@ -1719,6 +1934,240 @@
     setTimeout(randomGlitch, 4000 + Math.random() * 5000);
   }
   setTimeout(randomGlitch, 3000);
+
+  /* ═══ NODE PREVIEW MODAL ═══ */
+  const nodeModal     = document.getElementById('node-modal');
+  const nodePanelIcon = document.getElementById('node-panel-icon');
+  const nodePanelTitle= document.getElementById('node-panel-title');
+  const nodePanelMeta = document.getElementById('node-panel-meta');
+  const nodePreviewTxt= document.getElementById('node-preview-text');
+  const nodeDeleteBtn = document.getElementById('node-delete-btn');
+  document.getElementById('node-panel-close').addEventListener('click', () => nodeModal.classList.remove('open'));
+  nodeModal.addEventListener('click', e => { if (e.target===nodeModal) nodeModal.classList.remove('open'); });
+
+  let _activeNode = null;
+
+  /* Open the node modal from any source_id string (calendar / timeline clicks) */
+  function openNodeModalById(sourceId, sourceType) {
+    const live = docNodes.find(n => n.sourceId === sourceId);
+    if (live) { openNodeModal(live); return; }
+    const ext = (sourceType || sourceId.split('.').pop() || 'FILE').toUpperCase().slice(0,4);
+    openNodeModal({
+      sourceId,
+      label: sourceId.replace(/\.[^.]+$/, '').slice(0, 12),
+      ext,
+      color: { fill: '#FF5A00' },
+      isCore: false, isLog: (sourceType || '').toUpperCase() === 'LOG'
+    });
+  }
+
+  async function openNodeModal(node) {
+    _activeNode = node;
+    nodeModal.classList.add('open');
+
+    if (node.isCore) {
+      // YOU node — nuke workspace
+      nodePanelIcon.style.background = '#FF5A00';
+      nodePanelIcon.style.color = '#fff';
+      nodePanelIcon.textContent = 'YOU';
+      nodePanelTitle.textContent = 'YOU — Core Node';
+      nodePanelMeta.innerHTML = '<div class="node-meta-row"><span class="node-meta-label">WORKSPACE</span><span class="node-meta-val">' + getWorkspace() + '</span></div>';
+      nodePreviewTxt.textContent = 'This is your core node. Deleting it will permanently wipe all indexed documents and chat logs from this workspace. This cannot be undone.';
+      nodeDeleteBtn.textContent = '🗑 WIPE ENTIRE WORKSPACE';
+      nodeDeleteBtn.className = 'node-delete-btn danger';
+    } else if (node.isLog) {
+      nodePanelIcon.style.background = '#00c8c8';
+      nodePanelIcon.style.color = '#000';
+      nodePanelIcon.textContent = 'LOG';
+      nodePanelTitle.textContent = 'Chat Log';
+      nodePanelMeta.innerHTML = '<div class="node-meta-row"><span class="node-meta-label">TYPE</span><span class="node-meta-val">LOG</span></div>';
+      nodePreviewTxt.textContent = 'Loading chat history…';
+      nodeDeleteBtn.textContent = '🗑 CLEAR CHAT LOG';
+      nodeDeleteBtn.className = 'node-delete-btn';
+      // Load log preview
+      try {
+        const res = await fetch(`${API_BASE}/api/chatlog/${encodeURIComponent(getWorkspace())}`);
+        const data = await res.json();
+        if (data.entries.length) {
+          const last5 = data.entries.slice(-5).map(e => '[' + e.role.toUpperCase() + '] ' + e.message).join('\n\n');
+          nodePreviewTxt.textContent = data.entries.length + ' messages total. Last 5:\n\n' + last5;
+        } else {
+          nodePreviewTxt.textContent = 'No chat history yet.';
+        }
+      } catch { nodePreviewTxt.textContent = 'Could not load log.'; }
+    } else {
+      const color = node.color.fill || '#FF5A00';
+      nodePanelIcon.style.background = color;
+      nodePanelIcon.style.color = '#fff';
+      nodePanelIcon.textContent = node.ext.slice(0,3);
+      nodePanelTitle.textContent = node.sourceId || node.label;
+      nodePanelMeta.innerHTML =
+        `<div class="node-meta-row"><span class="node-meta-label">TYPE</span><span class="node-meta-val">${node.ext}</span></div>` +
+        `<div class="node-meta-row"><span class="node-meta-label">SOURCE ID</span><span class="node-meta-val">${node.sourceId || node.label}</span></div>`;
+      nodePreviewTxt.textContent = 'Generating summary…';
+      nodeDeleteBtn.textContent = '🗑 DELETE NODE';
+      nodeDeleteBtn.className = 'node-delete-btn';
+      // Ask the AI for a 10-word summary of this specific document
+      try {
+        const res = await fetch(`${API_BASE}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workspace_id: getWorkspace(),
+            message: `Summarize the document "${node.sourceId}" in exactly 10 words or fewer. Reply with only the summary, no intro or explanation.`,
+            app_identity: 'Second Brain',
+            custom_rules: ''
+          })
+        });
+        const data = await res.json();
+        const summary = (data.response || '').trim();
+        nodePreviewTxt.textContent = summary || 'No summary available.';
+      } catch { nodePreviewTxt.textContent = 'Preview unavailable.'; }
+    }
+  }
+
+  nodeDeleteBtn.addEventListener('click', async () => {
+    const n = _activeNode;
+    if (!n) return;
+    const ws = getWorkspace();
+
+    if (n.isCore) {
+      if (!confirm('WIPE ENTIRE WORKSPACE "' + ws + '"? This deletes ALL documents and chat logs permanently.')) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/workspace/${encodeURIComponent(ws)}`, {method:'DELETE'});
+        if (!res.ok) throw new Error((await res.json()).detail);
+        docNodes.length = 0;
+        document.getElementById('node-count').textContent = '0';
+        nodeModal.classList.remove('open');
+        showToast('WORKSPACE WIPED');
+        if (typeof fetchTimeline === 'function') fetchTimeline();
+        if (typeof fetchCalendar === 'function') fetchCalendar();
+      } catch(err) { showToast('ERROR: ' + err.message, true); }
+
+    } else if (n.isLog) {
+      try {
+        const res = await fetch(`${API_BASE}/api/node/${encodeURIComponent(ws)}?source_id=chat_log.jsonl`, {method:'DELETE'});
+        if (!res.ok) throw new Error((await res.json()).detail);
+        nodeModal.classList.remove('open');
+        showToast('CHAT LOG CLEARED');
+        if (typeof fetchTimeline === 'function') fetchTimeline();
+        if (typeof fetchCalendar === 'function') fetchCalendar();
+      } catch(err) { showToast('ERROR: ' + err.message, true); }
+
+    } else {
+      if (!confirm('Delete "' + (n.sourceId||n.label) + '" from workspace?')) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/node/${encodeURIComponent(ws)}?source_id=${encodeURIComponent(n.sourceId||n.label)}`, {method:'DELETE'});
+        if (!res.ok) throw new Error((await res.json()).detail);
+        const i = docNodes.indexOf(n);
+        if (i > -1) docNodes.splice(i, 1);
+        document.getElementById('node-count').textContent = docNodes.length;
+        nodeModal.classList.remove('open');
+        showToast('NODE DELETED');
+        if (typeof fetchTimeline === 'function') fetchTimeline();
+        if (typeof fetchCalendar === 'function') fetchCalendar();
+      } catch(err) { showToast('ERROR: ' + err.message, true); }
+    }
+  });
+
+  /* ═══ CHAT LOG MODAL ═══ */
+  const logModal   = document.getElementById('log-modal');
+  const logEntries = document.getElementById('log-entries');
+  document.getElementById('log-close-btn').addEventListener('click', () => logModal.classList.remove('open'));
+  logModal.addEventListener('click', e => { if (e.target===logModal) logModal.classList.remove('open'); });
+
+  async function openLogModal() {
+    logModal.classList.add('open');
+    logEntries.innerHTML = '<div style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">LOADING…</div>';
+    try {
+      const res  = await fetch(`${API_BASE}/api/chatlog/${encodeURIComponent(getWorkspace())}`);
+      const data = await res.json();
+      if (!data.entries.length) { logEntries.innerHTML = '<div style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">NO CHAT HISTORY YET</div>'; return; }
+      logEntries.innerHTML = '';
+      data.entries.forEach(entry => {
+        const wrap=document.createElement('div'); wrap.className='log-entry';
+        const role=document.createElement('div'); role.className=`log-role ${entry.role}`; role.textContent=entry.role==='user'?'YOU':'SB';
+        const mw=document.createElement('div'); mw.style.flex='1';
+        const txt=document.createElement('div'); txt.className='log-msg'; txt.textContent=entry.message;
+        const ts=document.createElement('div'); ts.className='log-ts'; ts.textContent=new Date(entry.timestamp).toLocaleString();
+        mw.appendChild(txt); mw.appendChild(ts); wrap.appendChild(role); wrap.appendChild(mw); logEntries.appendChild(wrap);
+      });
+      logEntries.scrollTop = logEntries.scrollHeight;
+    } catch(err) { logEntries.innerHTML = `<div style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:10px;color:var(--red)">ERROR: ${err.message}</div>`; }
+  }
+
+
+  /* ═══ MOBILE CHAT BOTTOM SHEET ═══ */
+  (function() {
+    const MOBILE = () => window.innerWidth <= 768;
+
+    const chatMessages  = document.getElementById('chat-messages');
+    const chatInputArea = document.getElementById('chat-input-area');
+    const mobClose      = document.getElementById('mob-chat-close');
+    const msgInput      = document.getElementById('msg-input');
+    const graphCanvas   = document.getElementById('graph-main-canvas');
+    const chatPanel     = document.getElementById('chat-panel');
+
+    let chatOpen = false;
+
+    function openMobChat() {
+      if (!MOBILE()) return;
+      chatOpen = true;
+      chatMessages.classList.add('mob-open');
+      mobClose.classList.add('visible');
+      chatInputArea.classList.add('mob-active');
+      // scroll messages to bottom
+      setTimeout(() => { chatMessages.scrollTop = chatMessages.scrollHeight; }, 50);
+    }
+
+    function closeMobChat() {
+      if (!MOBILE()) return;
+      chatOpen = false;
+      chatMessages.classList.remove('mob-open');
+      mobClose.classList.remove('visible');
+      chatInputArea.classList.remove('mob-active');
+    }
+
+    // Tapping input or send opens the chat
+    chatInputArea.addEventListener('touchstart', () => { if (MOBILE()) openMobChat(); }, { passive: true });
+    chatInputArea.addEventListener('click',      () => { if (MOBILE()) openMobChat(); });
+
+    // Close button collapses chat
+    mobClose.addEventListener('click', closeMobChat);
+    mobClose.addEventListener('touchend', e => { e.preventDefault(); closeMobChat(); });
+
+    // Tapping the graph canvas closes chat (passes touch through naturally since pointer-events:none on panel)
+    graphCanvas.addEventListener('click',      () => { if (MOBILE() && chatOpen) closeMobChat(); });
+    graphCanvas.addEventListener('touchstart', () => { if (MOBILE() && chatOpen) closeMobChat(); }, { passive: true });
+
+    // When a new message is appended, auto-open and scroll
+    const observer = new MutationObserver(() => {
+      if (MOBILE()) {
+        openMobChat();
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    });
+    observer.observe(chatMessages, { childList: true });
+
+    // On resize, clean up state
+    window.addEventListener('resize', () => {
+      if (!MOBILE()) {
+        chatMessages.classList.remove('mob-open');
+        mobClose.classList.remove('visible');
+        chatInputArea.classList.remove('mob-active');
+        chatOpen = false;
+      }
+    });
+  })();
+
+  /* ═══ PWA SERVICE WORKER ═══ */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(r => console.log('[SW] Registered:', r.scope))
+        .catch(e => console.warn('[SW] Failed:', e));
+    });
+  }
 
   </script>
 </body>

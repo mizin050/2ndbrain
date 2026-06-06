@@ -19,6 +19,19 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 import json
 
+# Chat log storage — one .jsonl file per workspace
+LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_logs")
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+def get_log_path(workspace_id: str) -> str:
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in workspace_id)
+    return os.path.join(LOGS_DIR, f"{safe}.jsonl")
+
+def append_chat_log(workspace_id: str, role: str, message: str):
+    entry = {"timestamp": datetime.now().isoformat(), "role": role, "message": message}
+    with open(get_log_path(workspace_id), "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+
 # Add current directory to path so we can import ai_layer
 # api.py and ai-layer.py are in the same directory (backend/ai-layer/)
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -250,6 +263,17 @@ async def chat(request: ChatRequest):
             request.app_identity,
             request.custom_rules
         )
+        # Persist exchange to chat log
+        append_chat_log(request.workspace_id, "user", request.message)
+        append_chat_log(request.workspace_id, "assistant", answer)
+        try:
+            log_path = get_log_path(request.workspace_id)
+            with open(log_path, "r", encoding="utf-8") as f:
+                log_text = f.read()
+            ai_layer.index_data(request.workspace_id, log_text, "chat_log.jsonl", "LOG")
+        except Exception:
+            pass
+
         return ChatResponse(
             response=answer,
             is_timeline_request=False,
@@ -305,9 +329,11 @@ async def get_nodes(workspace_id: str):
             if sid and sid not in seen:
                 seen[sid] = meta.get("source_type", "NOTE")
         nodes = [{"source_id": k, "source_type": v} for k, v in seen.items()]
+        if not any(n["source_id"] == "chat_log.jsonl" for n in nodes):
+            nodes.insert(0, {"source_id": "chat_log.jsonl", "source_type": "LOG"})
         return {"workspace_id": workspace_id, "nodes": nodes}
     except Exception:
-        return {"workspace_id": workspace_id, "nodes": []}
+        return {"workspace_id": workspace_id, "nodes": [{"source_id": "chat_log.jsonl", "source_type": "LOG"}]}
 
 # =====================================================================
 # 6b. FILE UPLOAD ENDPOINT — multipart, server-side text extraction
@@ -368,6 +394,92 @@ async def upload_file(
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
+
+# =====================================================================
+# 6c. CHAT LOG ENDPOINT
+# =====================================================================
+
+@app.get("/api/chatlog/{workspace_id}")
+async def get_chat_log(workspace_id: str, limit: int = 200):
+    """Returns last N chat log entries for the log viewer."""
+    log_path = get_log_path(workspace_id)
+    if not os.path.exists(log_path):
+        return {"workspace_id": workspace_id, "entries": []}
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            lines = [l.strip() for l in f if l.strip()]
+        entries = [json.loads(l) for l in lines[-limit:]]
+        return {"workspace_id": workspace_id, "entries": entries}
+    except Exception as e:
+        return {"workspace_id": workspace_id, "entries": [], "error": str(e)}
+
+# =====================================================================
+# 6d. DELETE ENDPOINTS
+# =====================================================================
+
+@app.delete("/api/node/{workspace_id}")
+async def delete_node(workspace_id: str, source_id: str):
+    """
+    Delete a single document node from ChromaDB.
+    If source_id is 'chat_log.jsonl', clears the chat log file only (keeps the node).
+    """
+    try:
+        # Special case: LOG node — clear log file but keep node in graph
+        if source_id == "chat_log.jsonl":
+            log_path = get_log_path(workspace_id)
+            if os.path.exists(log_path):
+                open(log_path, "w").close()  # truncate
+            # Also remove log chunks from ChromaDB
+            import chromadb as _chromadb
+            DB_PATH = os.getenv("DATABASE_PATH", "./chroma_db")
+            client = _chromadb.PersistentClient(path=DB_PATH)
+            collection = client.get_or_create_collection(name=workspace_id)
+            results = collection.get(include=["metadatas"])
+            ids_to_delete = [
+                results["ids"][i] for i, m in enumerate(results["metadatas"])
+                if m.get("source_id") == "chat_log.jsonl"
+            ]
+            if ids_to_delete:
+                collection.delete(ids=ids_to_delete)
+            return {"status": "cleared", "source_id": source_id, "message": "Chat log cleared"}
+
+        # Normal node — delete all chunks with matching source_id
+        import chromadb as _chromadb
+        DB_PATH = os.getenv("DATABASE_PATH", "./chroma_db")
+        client = _chromadb.PersistentClient(path=DB_PATH)
+        collection = client.get_or_create_collection(name=workspace_id)
+        results = collection.get(include=["metadatas"])
+        ids_to_delete = [
+            results["ids"][i] for i, m in enumerate(results["metadatas"])
+            if m.get("source_id") == source_id
+        ]
+        if ids_to_delete:
+            collection.delete(ids=ids_to_delete)
+        return {"status": "deleted", "source_id": source_id, "chunks_removed": len(ids_to_delete)}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+
+@app.delete("/api/workspace/{workspace_id}")
+async def delete_workspace(workspace_id: str):
+    """
+    Nuke the entire workspace — deletes ChromaDB collection + chat log.
+    Triggered when user deletes the YOU core node.
+    """
+    try:
+        import chromadb as _chromadb
+        DB_PATH = os.getenv("DATABASE_PATH", "./chroma_db")
+        client = _chromadb.PersistentClient(path=DB_PATH)
+        try:
+            client.delete_collection(name=workspace_id)
+        except Exception:
+            pass  # collection may not exist yet
+        log_path = get_log_path(workspace_id)
+        if os.path.exists(log_path):
+            os.remove(log_path)
+        return {"status": "deleted", "workspace_id": workspace_id, "message": "Workspace cleared"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Workspace delete failed: {str(e)}")
 
 # =====================================================================
 # 6d. URL INGESTION — scrape a webpage and index it

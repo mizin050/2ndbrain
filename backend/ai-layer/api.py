@@ -39,33 +39,24 @@ def append_chat_log(workspace_id: str, role: str, message: str):
         print(f"⚠️ Failed to write chat log: {e}")
 
 # Add current directory to path so we can import ai_layer
-# api.py and ai-layer.py are in the same directory (backend/ai-layer/)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 
-# Import the AI layer functions
+# Import the AI layer functions statically so Vercel bundles it correctly
 try:
-    # Import from same directory
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("ai_layer", os.path.join(current_dir, "ai-layer.py"))
-    if spec and spec.loader:
-        ai_layer = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(ai_layer)
-        
-        get_dynamic_chat_engine = ai_layer.get_dynamic_chat_engine
-        generate_timeline = ai_layer.generate_timeline
-        detect_and_handle_timeline_request = ai_layer.detect_and_handle_timeline_request
-        index_data = ai_layer.index_data
-        extract_dates_from_text = ai_layer.extract_dates_from_text
-        query_workspace    = ai_layer.query_workspace
-        qdrant_client_instance = ai_layer.qdrant_client_instance
-    else:
-        raise ImportError("Could not load ai-layer.py")
+    import ai_layer
+    
+    get_dynamic_chat_engine = ai_layer.get_dynamic_chat_engine
+    generate_timeline = ai_layer.generate_timeline
+    detect_and_handle_timeline_request = ai_layer.detect_and_handle_timeline_request
+    index_data = ai_layer.index_data
+    extract_dates_from_text = ai_layer.extract_dates_from_text
+    query_workspace    = ai_layer.query_workspace
+    qdrant_client_instance = ai_layer.qdrant_client_instance
 except ImportError as e:
     print(f"❌ Error importing ai_layer: {e}")
     print(f"📍 Current directory: {os.getcwd()}")
     print(f"📍 Script directory: {current_dir}")
-    print(f"📍 Looking for: {os.path.join(parent_dir, 'ai-layer', 'ai-layer.py')}")
     raise
 
 # =====================================================================

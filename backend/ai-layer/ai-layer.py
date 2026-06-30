@@ -20,7 +20,7 @@ try:
     from llama_index.vector_stores.qdrant import QdrantVectorStore
     from llama_index.llms.groq import Groq
     from llama_index.core.chat_engine import CondensePlusContextChatEngine
-    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+    from llama_index.core.embeddings import BaseEmbedding
     from llama_index.core.node_parser import TokenTextSplitter
     from llama_index.core.schema import Document
     HAS_LLAMA_INDEX = True
@@ -42,23 +42,58 @@ _ai_layer_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Only initialize llama_index if available
 if HAS_LLAMA_INDEX:
+    from pydantic import Field
+
+    class HuggingFaceInferenceAPIEmbedding(BaseEmbedding):
+        model_name: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
+        token: str = Field(default=None)
+
+        def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2", token: str = None, **kwargs):
+            super().__init__(model_name=model_name, token=token, **kwargs)
+
+        @classmethod
+        def class_name(cls) -> str:
+            return "HuggingFaceInferenceAPIEmbedding"
+
+        def _get_query_embedding(self, query: str) -> list:
+            return self._get_embedding(query)
+
+        def _get_text_embedding(self, text: str) -> list:
+            return self._get_embedding(text)
+
+        def _get_embedding(self, text: str) -> list:
+            api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{self.model_name}"
+            headers = {}
+            token = self.token or os.getenv("HF_TOKEN")
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+            response = requests.post(api_url, headers=headers, json={"inputs": text})
+            if response.status_code != 200:
+                raise Exception(f"HF Inference API Error {response.status_code}: {response.text}")
+            return response.json()
+
+        def _get_text_embedding_batch(self, texts: list, show_progress: bool = False) -> list:
+            api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{self.model_name}"
+            headers = {}
+            token = self.token or os.getenv("HF_TOKEN")
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+            response = requests.post(api_url, headers=headers, json={"inputs": texts})
+            if response.status_code != 200:
+                raise Exception(f"HF Inference API Batch Error {response.status_code}: {response.text}")
+            return response.json()
+
     Settings.llm = Groq(
         model="llama-3.3-70b-versatile",
         api_key=os.getenv("GROQ_API_KEY"),
         temperature=0.2
     )
 
-    # Use cloud Inference API on Vercel to stay within the 250MB package limit
-    if os.getenv("VERCEL") or os.getenv("HF_TOKEN"):
-        from llama_index.embeddings.huggingface import HuggingFaceInferenceAPIEmbedding
-        print("🌐 Vercel environment detected. Using Hugging Face Inference API for Embeddings (Stateless)")
-        Settings.embed_model = HuggingFaceInferenceAPIEmbedding(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            token=os.getenv("HF_TOKEN")
-        )
-    else:
-        print("💾 Local environment detected. Using Local Hugging Face Embeddings")
-        Settings.embed_model = HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
+    print("🌐 Using Hugging Face Inference API for Embeddings (Stateless)")
+    Settings.embed_model = HuggingFaceInferenceAPIEmbedding(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        token=os.getenv("HF_TOKEN")
+    )
 
 # Initialize Qdrant Client (gracefully falls back to local disk if cloud credentials missing)
 qdrant_client_instance = None
@@ -72,9 +107,13 @@ if HAS_QDRANT:
             api_key=QDRANT_API_KEY
         )
     else:
-        local_db_path = os.getenv("DATABASE_PATH") or os.path.join(_ai_layer_dir, "qdrant_db")
-        print(f"💾 QDRANT_URL/KEY not found. Fallback to local disk storage at: {local_db_path}")
-        qdrant_client_instance = qdrant_client.QdrantClient(path=local_db_path)
+        if os.getenv("VERCEL"):
+            print("💾 QDRANT_URL/KEY not found on Vercel. Fallback to temporary in-memory database to prevent crash.")
+            qdrant_client_instance = qdrant_client.QdrantClient(location=":memory:")
+        else:
+            local_db_path = os.getenv("DATABASE_PATH") or os.path.join(_ai_layer_dir, "qdrant_db")
+            print(f"💾 QDRANT_URL/KEY not found. Fallback to local disk storage at: {local_db_path}")
+            qdrant_client_instance = qdrant_client.QdrantClient(path=local_db_path)
 
 
 # Resolve GCP key path relative to THIS file's directory so it works
@@ -419,8 +458,10 @@ def recompute_priority(existing_meta: dict, query_count: int) -> int:
 def get_embed_model():
     if HAS_LLAMA_INDEX and hasattr(Settings, "embed_model") and Settings.embed_model:
         return Settings.embed_model
-    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-    return HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
+    return HuggingFaceInferenceAPIEmbedding(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        token=os.getenv("HF_TOKEN")
+    )
 
 def generate_cluster_name(text: str) -> str:
     """Uses Groq LLM to generate a human-like 2-3 word topic name for a cluster."""

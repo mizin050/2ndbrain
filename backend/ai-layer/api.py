@@ -20,7 +20,10 @@ from datetime import datetime, timedelta
 import json
 
 # Chat log storage — one .jsonl file per workspace
-LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_logs")
+if os.getenv("VERCEL"):
+    LOGS_DIR = "/tmp/chat_logs"
+else:
+    LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_logs")
 os.makedirs(LOGS_DIR, exist_ok=True)
 
 def get_log_path(workspace_id: str) -> str:
@@ -29,8 +32,11 @@ def get_log_path(workspace_id: str) -> str:
 
 def append_chat_log(workspace_id: str, role: str, message: str):
     entry = {"timestamp": datetime.now().isoformat(), "role": role, "message": message}
-    with open(get_log_path(workspace_id), "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    try:
+        with open(get_log_path(workspace_id), "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as e:
+        print(f"⚠️ Failed to write chat log: {e}")
 
 # Add current directory to path so we can import ai_layer
 # api.py and ai-layer.py are in the same directory (backend/ai-layer/)

@@ -52,7 +52,7 @@ try:
         index_data = ai_layer.index_data
         extract_dates_from_text = ai_layer.extract_dates_from_text
         query_workspace    = ai_layer.query_workspace
-        chroma_client      = ai_layer.chroma_client
+        qdrant_client_instance = ai_layer.qdrant_client_instance
     else:
         raise ImportError("Could not load ai-layer.py")
 except ImportError as e:
@@ -171,26 +171,25 @@ async def get_timeline(request: TimelineRequest):
 @app.get("/api/calendar/{workspace_id}")
 async def get_calendar(workspace_id: str, month: int, year: int):
     """
-    Fetch calendar view of indexed documents.
+    Fetch calendar view of indexed documents from Qdrant.
     Shows which dates have content indexed.
-    
-    Path Parameters:
-    - workspace_id: Workspace to query
-    - month: Month (1-12)
-    - year: Year
-    
-    Returns: Calendar structure with events per date
     """
     try:
-        if chroma_client is None:
+        if qdrant_client_instance is None or not qdrant_client_instance.collection_exists(collection_name=workspace_id):
             return CalendarResponse(month=month, year=year, events=[])
-        chroma_collection = chroma_client.get_or_create_collection(name=workspace_id)
-        
-        all_results = chroma_collection.get(include=["metadatas", "documents"])
+            
+        scroll_results = qdrant_client_instance.scroll(
+            collection_name=workspace_id,
+            with_payload=True,
+            with_vectors=False,
+            limit=10000
+        )
+        points = scroll_results[0]
         
         # Group events by date
         events_by_date = {}
-        for metadata, doc in zip(all_results["metadatas"], all_results["documents"]):
+        for p in points:
+            metadata = p.payload.get("metadata", p.payload) or {}
             first_date_str = metadata.get("first_mentioned_date")
             if first_date_str:
                 try:
@@ -317,23 +316,172 @@ async def get_nodes(workspace_id: str):
     """
     Returns all unique source_ids indexed in a workspace.
     Frontend calls this on page load to rebuild the knowledge graph.
+    Now includes priority (1=HIGH/red, 2=MEDIUM/yellow, 3=LOW/green)
+    and dynamically re-scores based on query_count (Option 3).
+    Also runs automatic semantic clustering to keep memory storage clustered.
     """
     try:
-        if chroma_client is None:
+        if qdrant_client_instance is None:
             return {"workspace_id": workspace_id, "nodes": []}
-        collection = chroma_client.get_or_create_collection(name=workspace_id)
-        results = collection.get(include=["metadatas"])
+            
+        # Ensure database is clustered
+        try:
+            ai_layer.ensure_database_clustering(workspace_id)
+        except Exception as ce:
+            print(f"Error in database auto-clustering: {ce}")
+            
+        if not qdrant_client_instance.collection_exists(collection_name=workspace_id):
+            return {"workspace_id": workspace_id, "nodes": [{"source_id": "chat_log.jsonl", "source_type": "LOG", "priority": 2, "priority_score": 0.0, "query_count": 0, "ingestion_timestamp": "", "cluster_id": "cluster_chat", "cluster_name": "Chat Logs"}]}
+
+        scroll_results = qdrant_client_instance.scroll(
+            collection_name=workspace_id,
+            with_payload=True,
+            with_vectors=False,
+            limit=10000
+        )
+        points = scroll_results[0]
+        
         seen = {}
-        for meta in results["metadatas"]:
-            sid = meta.get("source_id")
+        for p in points:
+            metadata = p.payload.get("metadata", p.payload) or {}
+            sid = metadata.get("source_id")
             if sid and sid not in seen:
-                seen[sid] = meta.get("source_type", "NOTE")
-        nodes = [{"source_id": k, "source_type": v} for k, v in seen.items()]
+                seen[sid] = metadata
+        nodes = []
+        for sid, meta in seen.items():
+            qc = int(meta.get("query_count", 0))
+            base_priority = int(meta.get("priority", 3))
+            dynamic_priority = ai_layer.recompute_priority(meta, qc)
+            nodes.append({
+                "source_id": sid,
+                "source_type": meta.get("source_type", "NOTE"),
+                "priority": dynamic_priority,
+                "priority_score": float(meta.get("priority_score", 0.0)),
+                "query_count": qc,
+                "ingestion_timestamp": meta.get("ingestion_timestamp", ""),
+                "cluster_id": meta.get("cluster_id", "cluster_default"),
+                "cluster_name": meta.get("cluster_name", "General Knowledge"),
+            })
         if not any(n["source_id"] == "chat_log.jsonl" for n in nodes):
-            nodes.insert(0, {"source_id": "chat_log.jsonl", "source_type": "LOG"})
+            nodes.insert(0, {
+                "source_id": "chat_log.jsonl",
+                "source_type": "LOG",
+                "priority": 2,
+                "priority_score": 0.0,
+                "query_count": 0,
+                "ingestion_timestamp": "",
+                "cluster_id": "cluster_chat",
+                "cluster_name": "Chat Logs"
+            })
         return {"workspace_id": workspace_id, "nodes": nodes}
     except Exception:
-        return {"workspace_id": workspace_id, "nodes": [{"source_id": "chat_log.jsonl", "source_type": "LOG"}]}
+        return {"workspace_id": workspace_id, "nodes": [{"source_id": "chat_log.jsonl", "source_type": "LOG", "priority": 2, "priority_score": 0.0, "query_count": 0, "ingestion_timestamp": "", "cluster_id": "cluster_chat", "cluster_name": "Chat Logs"}]}
+
+# =====================================================================
+# 6a2. CONNECTIONS ENDPOINT — AI-detected node similarity edges
+# =====================================================================
+
+@app.get("/api/connections/{workspace_id}")
+async def get_connections(workspace_id: str, threshold: float = 0.60):
+    """
+    Computes cosine similarity between nodes using their stored document text in Qdrant.
+    Re-embeds one chunk per source using the same HuggingFace model, then
+    computes pairwise cosine similarity. Returns edges above threshold.
+    Lower threshold (0.60) catches more connections than 0.72.
+    """
+    try:
+        if qdrant_client_instance is None or not qdrant_client_instance.collection_exists(collection_name=workspace_id):
+            return {"connections": []}
+            
+        scroll_results = qdrant_client_instance.scroll(
+            collection_name=workspace_id,
+            with_payload=True,
+            with_vectors=False,
+            limit=10000
+        )
+        points = scroll_results[0]
+
+        if not points:
+            return {"connections": []}
+
+        import numpy as np
+        embed_model = ai_layer.get_embed_model()
+
+        # Collect first chunk per source_id
+        source_texts = {}
+        for p in points:
+            metadata = p.payload.get("metadata", p.payload) or {}
+            sid = metadata.get("source_id")
+            doc = p.payload.get("text", "")
+            if sid and sid not in source_texts and doc:
+                source_texts[sid] = doc[:500]  # use first 500 chars of first chunk
+
+        if len(source_texts) < 2:
+            return {"connections": []}
+
+        # Embed each source
+        ids = list(source_texts.keys())
+        texts = [source_texts[sid] for sid in ids]
+        embeddings = embed_model.get_text_embedding_batch(texts)
+
+        def norm(v):
+            arr = np.array(v, dtype=np.float32)
+            n = np.linalg.norm(arr)
+            return arr / n if n > 0 else arr
+
+        normed = [norm(e) for e in embeddings]
+
+        connections = []
+        for i in range(len(ids)):
+            for j in range(i + 1, len(ids)):
+                sim = float(np.dot(normed[i], normed[j]))
+                if sim >= threshold:
+                    connections.append({
+                        "source": ids[i],
+                        "target": ids[j],
+                        "similarity": round(sim, 3)
+                    })
+
+        connections.sort(key=lambda x: x["similarity"], reverse=True)
+        return {"connections": connections[:30]}
+
+    except Exception as e:
+        return {"connections": [], "error": str(e)}
+
+# =====================================================================
+# 6a3. QUERY COUNT INCREMENT — tracks how often each node is queried
+# =====================================================================
+
+@app.post("/api/nodes/{workspace_id}/increment")
+async def increment_query_count(workspace_id: str, source_id: str):
+    """Increments query_count on all chunks of a source_id in Qdrant. Used for dynamic priority."""
+    try:
+        if qdrant_client_instance is None or not qdrant_client_instance.collection_exists(collection_name=workspace_id):
+            return {"status": "error", "detail": "Collection does not exist"}
+            
+        scroll_results = qdrant_client_instance.scroll(
+            collection_name=workspace_id,
+            with_payload=True,
+            with_vectors=False,
+            limit=10000
+        )
+        points = scroll_results[0]
+        
+        updated_count = 0
+        for p in points:
+            payload = p.payload or {}
+            meta = dict(payload.get("metadata", payload))
+            if meta.get("source_id") == source_id:
+                meta["query_count"] = int(meta.get("query_count", 0)) + 1
+                qdrant_client_instance.set_payload(
+                    collection_name=workspace_id,
+                    payload={"metadata": meta},
+                    points=[p.id]
+                )
+                updated_count += 1
+        return {"status": "ok", "updated_chunks": updated_count}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 
 # =====================================================================
 # 6b. FILE UPLOAD ENDPOINT — multipart, server-side text extraction
@@ -420,42 +568,54 @@ async def get_chat_log(workspace_id: str, limit: int = 200):
 @app.delete("/api/node/{workspace_id}")
 async def delete_node(workspace_id: str, source_id: str):
     """
-    Delete a single document node from ChromaDB.
+    Delete a single document node from Qdrant.
     If source_id is 'chat_log.jsonl', clears the chat log file only (keeps the node).
     """
     try:
+        from qdrant_client.http import models
+        
         # Special case: LOG node — clear log file but keep node in graph
         if source_id == "chat_log.jsonl":
             log_path = get_log_path(workspace_id)
             if os.path.exists(log_path):
                 open(log_path, "w").close()  # truncate
-            # Also remove log chunks from ChromaDB
-            import chromadb as _chromadb
-            DB_PATH = os.getenv("DATABASE_PATH", "./chroma_db")
-            client = _chromadb.PersistentClient(path=DB_PATH)
-            collection = client.get_or_create_collection(name=workspace_id)
-            results = collection.get(include=["metadatas"])
-            ids_to_delete = [
-                results["ids"][i] for i, m in enumerate(results["metadatas"])
-                if m.get("source_id") == "chat_log.jsonl"
-            ]
-            if ids_to_delete:
-                collection.delete(ids=ids_to_delete)
+            
+            if qdrant_client_instance is not None and qdrant_client_instance.collection_exists(collection_name=workspace_id):
+                qdrant_client_instance.delete(
+                    collection_name=workspace_id,
+                    points_selector=models.Filter(
+                        should=[
+                            models.FieldCondition(
+                                key="metadata.source_id",
+                                match=models.MatchValue(value="chat_log.jsonl")
+                            ),
+                            models.FieldCondition(
+                                key="source_id",
+                                match=models.MatchValue(value="chat_log.jsonl")
+                            )
+                        ]
+                    )
+                )
             return {"status": "cleared", "source_id": source_id, "message": "Chat log cleared"}
 
         # Normal node — delete all chunks with matching source_id
-        import chromadb as _chromadb
-        DB_PATH = os.getenv("DATABASE_PATH", "./chroma_db")
-        client = _chromadb.PersistentClient(path=DB_PATH)
-        collection = client.get_or_create_collection(name=workspace_id)
-        results = collection.get(include=["metadatas"])
-        ids_to_delete = [
-            results["ids"][i] for i, m in enumerate(results["metadatas"])
-            if m.get("source_id") == source_id
-        ]
-        if ids_to_delete:
-            collection.delete(ids=ids_to_delete)
-        return {"status": "deleted", "source_id": source_id, "chunks_removed": len(ids_to_delete)}
+        if qdrant_client_instance is not None and qdrant_client_instance.collection_exists(collection_name=workspace_id):
+            qdrant_client_instance.delete(
+                collection_name=workspace_id,
+                points_selector=models.Filter(
+                    should=[
+                        models.FieldCondition(
+                            key="metadata.source_id",
+                            match=models.MatchValue(value=source_id)
+                        ),
+                        models.FieldCondition(
+                            key="source_id",
+                            match=models.MatchValue(value=source_id)
+                        )
+                    ]
+                )
+            )
+        return {"status": "deleted", "source_id": source_id}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
@@ -463,17 +623,15 @@ async def delete_node(workspace_id: str, source_id: str):
 @app.delete("/api/workspace/{workspace_id}")
 async def delete_workspace(workspace_id: str):
     """
-    Nuke the entire workspace — deletes ChromaDB collection + chat log.
+    Nuke the entire workspace — deletes Qdrant collection + chat log.
     Triggered when user deletes the YOU core node.
     """
     try:
-        import chromadb as _chromadb
-        DB_PATH = os.getenv("DATABASE_PATH", "./chroma_db")
-        client = _chromadb.PersistentClient(path=DB_PATH)
-        try:
-            client.delete_collection(name=workspace_id)
-        except Exception:
-            pass  # collection may not exist yet
+        if qdrant_client_instance is not None:
+            try:
+                qdrant_client_instance.delete_collection(collection_name=workspace_id)
+            except Exception:
+                pass  # collection may not exist yet
         log_path = get_log_path(workspace_id)
         if os.path.exists(log_path):
             os.remove(log_path)

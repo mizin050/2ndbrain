@@ -1,26 +1,37 @@
 {
-  "name": "Second Brain — Onyx",
-  "short_name": "Onyx",
-  "description": "AI-powered personal knowledge base with RAG, timeline, and neural map",
+  "name": "Second Brain",
+  "short_name": "Second Brain",
+  "description": "Your personalized AI-powered memory and knowledge assistant.",
   "start_url": "./second-brain.html",
+  "scope": "./",
   "display": "standalone",
-  "orientation": "any",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "orientation": "portrait-primary",
+  "background_color": "#050505",
+  "theme_color": "#050505",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%230a0a0a'/><circle cx='96' cy='96' r='40' fill='none' stroke='%23ff4500' stroke-width='4'/><circle cx='96' cy='96' r='12' fill='%23ff4500'/><circle cx='96' cy='56' r='8' fill='%23ff4500'/><circle cx='126' cy='116' r='6' fill='%23ff6600'/><circle cx='66' cy='116' r='6' fill='%23ff6600'/></svg>",
+      "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%230a0a0a'/><circle cx='256' cy='256' r='100' fill='none' stroke='%23ff4500' stroke-width='8'/><circle cx='256' cy='256' r='30' fill='%23ff4500'/><circle cx='256' cy='156' r='20' fill='%23ff4500'/><circle cx='340' cy='306' r='16' fill='%23ff6600'/><circle cx='172' cy='306' r='16' fill='%23ff6600'/></svg>",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ],
-  "categories": ["productivity", "utilities"],
-  "screenshots": []
+  ]
 }

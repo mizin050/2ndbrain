@@ -83,6 +83,12 @@ if HAS_LLAMA_INDEX:
                 raise Exception(f"HF Inference API Batch Error {response.status_code}: {response.text}")
             return response.json()
 
+        async def _aget_query_embedding(self, query: str) -> list:
+            return self._get_query_embedding(query)
+
+        async def _aget_text_embedding(self, text: str) -> list:
+            return self._get_text_embedding(text)
+
     Settings.llm = Groq(
         model="llama-3.3-70b-versatile",
         api_key=os.getenv("GROQ_API_KEY"),

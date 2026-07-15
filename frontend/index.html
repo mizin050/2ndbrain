@@ -754,11 +754,12 @@
       height: calc(48px + env(safe-area-inset-top));
       padding: env(safe-area-inset-top) 12px 0 12px;
     }
-    .logo { font-size: 13px; }
+    .logo { font-size: 0; }
+    .logo::after { content: "SB"; font-family: var(--font-display); font-size: 14px; letter-spacing: 1px; color: var(--text); }
     .logo-dot { width: 6px; height: 6px; }
     .header-ascii { display: none; }
-    #workspace-bar label { font-size: 9px; }
-    #workspace-input { width: 90px; font-size: 10px; padding: 3px 7px; }
+    #workspace-bar label { display: none; }
+    #workspace-input { width: 70px; font-size: 10px; padding: 3px 7px; }
 
     /* Graph header smaller */
     .graph-header { padding: 0 16px 8px; }

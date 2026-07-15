@@ -1,8 +1,7 @@
-const CACHE_NAME = "second-brain-shell-v1";
+const CACHE_NAME = "second-brain-shell-v3";
 const SHELL_ASSETS = [
   "./",
   "./index.html",
-  "./second-brain.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",

@@ -2,7 +2,7 @@
   "name": "Second Brain",
   "short_name": "Second Brain",
   "description": "Your personalized AI-powered memory and knowledge assistant.",
-  "start_url": "./second-brain.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",

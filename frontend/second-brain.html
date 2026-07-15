@@ -61,28 +61,15 @@
       background: var(--black);
       color: var(--text);
       font-family: var(--font-body);
-      cursor: none;
       position: relative;
     }
 
-    /* ── CURSOR ── */
-    #cursor {
-      position: fixed; width: 12px; height: 12px;
-      background: var(--orange); border-radius: 50%;
-      pointer-events: none; z-index: 999999;
-      transform: translate(-50%, -50%);
-      transition: width .2s, height .2s;
-      mix-blend-mode: screen;
-    }
-    #cursor-ring {
-      position: fixed; width: 36px; height: 36px;
-      border: 1px solid rgba(255,90,0,.3); border-radius: 50%;
-      pointer-events: none; z-index: 999998;
-      transform: translate(-50%, -50%);
-      transition: width .25s, height .25s, border-color .2s;
-    }
-    body:has(button:hover, .clickable:hover) #cursor { width: 20px; height: 20px; }
-    body:has(button:hover, .clickable:hover) #cursor-ring { width: 54px; height: 54px; border-color: var(--orange); }
+    /* FORCE STANDARD BROWSER CURSOR GLOBALLY */
+    * { cursor: auto !important; }
+    button, a, input[type="button"], input[type="submit"], .cyber-btn, .clickable, summary, [role="button"], option { cursor: pointer !important; }
+    input[type="text"], input[type="email"], input[type="password"], input[type="url"], textarea { cursor: text !important; }
+
+    #cursor, #cursor-ring { display: none !important; }
 
     /* ── GRAIN + SCANLINES ── */
     #grain {
@@ -431,7 +418,7 @@
     #audio-status.busy { color: var(--yellow); animation: blink 1s step-end infinite; }
 
     /* Toast */
-    #toast-container { position: absolute; top: 74px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 40; pointer-events: none; align-items: center; }
+    #toast-container { position: absolute; top: 74px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 10000; pointer-events: none; align-items: center; }
     .toast { background: rgba(8,8,0,.92); border: 1px solid rgba(255,90,0,.4); color: #FF7733; font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; padding: 6px 16px; border-radius: 2px; text-transform: uppercase; white-space: nowrap; animation: toastIn .3s ease both; }
     .toast.error { border-color: rgba(255,68,68,.5); color: var(--red); }
     @keyframes toastIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
@@ -825,9 +812,7 @@
     -->
     <div id="workspace-bar">
       <label for="workspace-input">WS://</label>
-      <input id="workspace-input" type="text" placeholder="my-workspace" spellcheck="false" />
-      <label for="groq-key-input" style="color: var(--orange); font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; opacity: .8; margin-left: 8px;">KEY://</label>
-      <input id="groq-key-input" type="password" placeholder="Groq key" spellcheck="false" autocomplete="off" style="margin-right: 8px;" />
+      <input id="workspace-input" type="text" placeholder="my-workspace" spellcheck="false" style="margin-right: 8px;" />
       
       <!-- Supabase Auth Layout Controls -->
       <button id="supabase-auth-btn" class="cyber-btn mini" style="padding: 4px 10px; font-size: 8px; border: 1px solid var(--orange); background: rgba(255,90,0,0.06); color: var(--orange); cursor: pointer; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">⚡ SIGN IN</button>
@@ -837,7 +822,7 @@
         <span id="supabase-user-email" style="font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 1px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Email</span>
         <button id="supabase-sync-btn" title="Backup memories to Cloud Database" style="background: rgba(0, 255, 204, 0.08); border: 1px solid var(--green); color: var(--green); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">↑ SYNC</button>
         <button id="supabase-pull-btn" title="Restore memories from Cloud Database" style="background: rgba(255, 90, 0, 0.08); border: 1px solid var(--orange); color: var(--orange); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">↓ PULL</button>
-        <button id="supabase-logout-btn" title="Sign Out of Account" style="background: none; border: none; color: var(--red); font-size: 9px; cursor: pointer; padding: 0 4px; font-family: var(--font-mono);">[X]</button>
+        <button id="supabase-logout-btn" title="Sign Out of Account" style="background: rgba(255, 68, 68, 0.08); border: 1px solid var(--red); color: var(--red); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">⚡ SIGN OUT</button>
       </div>
 
       <div id="api-status-dot" title="API status"></div>
@@ -1026,7 +1011,7 @@
         </div>
 
         <!-- Supabase Configurations -->
-        <div style="display:flex;flex-direction:column;gap:10px;border:1px solid rgba(255,90,0,.15);padding:14px;border-radius:2px;background:rgba(255,90,0,.01);">
+        <div id="supabase-config-section" style="display:flex;flex-direction:column;gap:10px;border:1px solid rgba(255,90,0,.15);padding:14px;border-radius:2px;background:rgba(255,90,0,.01);">
           <div style="font-family:var(--font-mono);font-size:9px;color:var(--orange);letter-spacing:1px;font-weight:bold;">// STEP 1: DEPLOY FREE BACKEND CONFIG (ONCE)</div>
           
           <div style="display:flex;flex-direction:column;gap:4px;">
@@ -1044,6 +1029,11 @@
         <div style="display:flex;flex-direction:column;gap:12px;border:1px solid rgba(255,90,0,.15);padding:14px;border-radius:2px;">
           <div style="font-family:var(--font-mono);font-size:9px;color:var(--orange);letter-spacing:1px;font-weight:bold;">// STEP 2: CREDENTIAL MATRIX</div>
 
+          <div id="sb-username-container" style="display:none;flex-direction:column;gap:4px;">
+            <label style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;">USERNAME (REQUIRED)://</label>
+            <input id="sb-username" type="text" placeholder="neo" spellcheck="false" autocomplete="on" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.25);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
+          </div>
+
           <div style="display:flex;flex-direction:column;gap:4px;">
             <label style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;">EMAIL_ADDRESS://</label>
             <input id="sb-email" type="email" placeholder="agent@secondbrain.com" spellcheck="false" autocomplete="on" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.25);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
@@ -1053,6 +1043,15 @@
             <label style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;">SECURITY_ACCESS_PASSWORD://</label>
             <input id="sb-pass" type="password" placeholder="••••••••••••" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.25);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
           </div>
+
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label id="sb-groq-label" style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;">GROQ_API_KEY (REQUIRED)://</label>
+            <input id="sb-groq" type="password" placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxx" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.25);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
+          </div>
+        </div>
+
+        <div style="text-align:right;margin-top:-6px;margin-bottom:6px;">
+          <button id="toggle-config-btn" style="background:none;border:none;color:rgba(255,90,0,.5);font-family:var(--font-mono);font-size:8px;letter-spacing:1px;cursor:pointer;text-transform:uppercase;">[ Toggle Backend Database Config ]</button>
         </div>
 
         <button id="sb-auth-submit-btn" style="width:100%;background:var(--orange);border:none;color:#000;font-family:var(--font-mono);font-size:11px;font-weight:bold;letter-spacing:2px;padding:12px;cursor:pointer;border-radius:2px;text-transform:uppercase;transition:all .2s;box-shadow:0 0 10px rgba(255,90,0,.2);">EXECUTE SIGN IN</button>
@@ -1403,35 +1402,6 @@ create policy "Users can read/write their own profiles."
   checkHealth();
   setInterval(checkHealth, 10000);
 
-  // Set up Groq API Key Input Persistence
-  const groqInput = document.getElementById('groq-key-input');
-  if (groqInput) {
-    groqInput.value = localStorage.getItem('sb_groq_key') || '';
-    groqInput.addEventListener('input', () => {
-      const trimmedVal = groqInput.value.trim();
-      localStorage.setItem('sb_groq_key', trimmedVal);
-      if (typeof googleAccessToken !== 'undefined' && googleAccessToken) {
-        syncGoogleDriveConfig();
-      }
-    });
-  }
-
-  /* ══════════════════════════════════════════════════════════════════
-     CURSOR
-  ══════════════════════════════════════════════════════════════════ */
-  const cursor = document.getElementById('cursor');
-  const cursorRing = document.getElementById('cursor-ring');
-  let mouseX = 0, mouseY = 0, ringX = 0, ringY = 0;
-  document.addEventListener('mousemove', e => {
-    mouseX = e.clientX; mouseY = e.clientY;
-    cursor.style.left = mouseX + 'px'; cursor.style.top = mouseY + 'px';
-  });
-  (function animRing() {
-    ringX += (mouseX - ringX) * 0.12; ringY += (mouseY - ringY) * 0.12;
-    cursorRing.style.left = ringX + 'px'; cursorRing.style.top = ringY + 'px';
-    requestAnimationFrame(animRing);
-  })();
-
   /* ══════════════════════════════════════════════════════════════════
      BG SHAPES
   ══════════════════════════════════════════════════════════════════ */
@@ -1587,7 +1557,7 @@ ${contextBlock}`;
             'Authorization': `Bearer ${apiKey}`
           },
           body: JSON.stringify({
-            model: 'llama3-8b-8192',
+            model: 'llama-3.1-8b-instant',
             messages: [
               { role: 'system', content: systemPrompt },
               ...chatHistory.slice(-10).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content }))
@@ -2665,114 +2635,142 @@ ${contextBlock}`;
   const audioIndexBtn   = document.getElementById('audio-index-btn');
   const audioStatus     = document.getElementById('audio-status');
 
-  let recognition = null;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recordInterval = null;
+  let recordSeconds = 0;
   let transcribedText = '';
   let isRecording = false;
+  let audioStream = null;
 
-  function initSpeechRecognition() {
-    const SpeechObj = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechObj) return null;
-    const rec = new SpeechObj();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = 'en-US';
-    return rec;
+  function formatTime(sec) {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
-  recordBtn.addEventListener('click', () => {
+  recordBtn.addEventListener('click', async () => {
     if (isRecording) {
-      // STOP Speech Recognition
-      if (recognition) {
-        recognition.stop();
-      } else {
-        // Fallback timer stop
-        clearInterval(recordInterval);
-        isRecording = false;
-        recordBtn.textContent = '⏺ START RECORDING';
-        recordBtn.classList.remove('recording');
-        recordZone.classList.remove('recording');
-        recordTimer.classList.remove('recording');
-        recordHint.textContent = 'Recording complete!';
+      // STOP RECORDING
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
       }
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+      }
+      clearInterval(recordInterval);
+      isRecording = false;
+      recordBtn.textContent = '⏺ START RECORDING';
+      recordBtn.classList.remove('recording');
+      recordZone.classList.remove('recording');
+      recordTimer.classList.remove('recording');
+      recordHint.textContent = 'Processing voice data... transcribing via Groq Whisper AI...';
+      audioStatus.textContent = 'TRANSCRIBING AUDIO VIA WHISPER AI... PLEASE WAIT...';
+      audioStatus.className = 'busy';
     } else {
-      // START Speech Recognition
+      // START RECORDING
       transcribedText = '';
       audioStatus.textContent = '';
       audioStatus.className = '';
-      recognition = initSpeechRecognition();
       
-      isRecording = true;
-      recordSeconds = 0;
-      recordTimer.textContent = '00:00';
-      recordBtn.textContent = '⏹ STOP RECORDING';
-      recordBtn.classList.add('recording');
-      recordZone.classList.add('recording');
-      recordTimer.classList.add('recording');
-      recordHint.textContent = 'Listening to your voice... Speak now!';
-
-      recordInterval = setInterval(() => {
-        recordSeconds++;
-        recordTimer.textContent = formatTime(recordSeconds);
-      }, 1000);
-
-      if (recognition) {
-        recognition.onresult = (e) => {
-          let interim = '';
-          let final = '';
-          for (let i = e.resultIndex; i < e.results.length; ++i) {
-            if (e.results[i].isFinal) {
-              final += e.results[i][0].transcript;
-            } else {
-              interim += e.results[i][0].transcript;
-            }
-          }
-          const currentText = final || interim;
-          if (currentText.trim()) {
-            transcribedText = currentText;
-            audioStatus.textContent = `Live Transcription: "${transcribedText}"`;
-            audioStatus.className = 'busy';
-            audioSelectedName.textContent = `live-voice-recording.txt (${transcribedText.split(/\s+/).length} words)`;
-            audioIndexBtn.disabled = false;
-          }
-        };
-
-        recognition.onerror = (err) => {
-          console.error("SpeechRecognition error:", err);
-          if (err.error === 'not-allowed') {
-            audioStatus.textContent = 'MIC ACCESS DENIED: Enable microphone permission.';
-            audioStatus.className = 'err';
-            clearInterval(recordInterval);
-            isRecording = false;
-            recordBtn.textContent = '⏺ START RECORDING';
-            recordBtn.classList.remove('recording');
-            recordZone.classList.remove('recording');
-            recordTimer.classList.remove('recording');
-            recordHint.textContent = 'Failed to start.';
-          }
-        };
-
-        recognition.onend = () => {
-          clearInterval(recordInterval);
-          isRecording = false;
-          recordBtn.textContent = '⏺ START RECORDING';
-          recordBtn.classList.remove('recording');
-          recordZone.classList.remove('recording');
-          recordTimer.classList.remove('recording');
-          recordHint.textContent = 'Transcription complete! Press INDEX to commit to Second Brain.';
-        };
-
-        recognition.start();
-      } else {
-        // Fallback mock transcription for desktop browsers with no SpeechRecognition
-        audioStatus.textContent = 'Web Speech API is not fully supported on this browser. Try Chrome/Safari on your phone!';
+      const groqKey = localStorage.getItem('sb_groq_key') || '';
+      if (!groqKey) {
+        audioStatus.textContent = '⚠️ Groq API Key is missing. Please sign in or configure your Groq key in the portal first!';
         audioStatus.className = 'err';
-        recordHint.textContent = 'Or try pasting your raw audio memos as files!';
-        clearInterval(recordInterval);
-        isRecording = false;
-        recordBtn.textContent = '⏺ START RECORDING';
-        recordBtn.classList.remove('recording');
-        recordZone.classList.remove('recording');
-        recordTimer.classList.remove('recording');
+        recordHint.textContent = 'Use the [SIGN IN] portal in the header to save your Groq Key.';
+        return;
+      }
+
+      if (window.location.protocol === 'file:') {
+        audioStatus.textContent = '⚠️ BROWSER SECURITY: Microphone access is blocked when opening local files directly (file:/// protocol). Please deploy to Netlify (HTTPS) or run a local server!';
+        audioStatus.className = 'err';
+        recordHint.textContent = 'Microphone recording requires a secure web origin (HTTPS or localhost).';
+        return;
+      }
+
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        console.error("Microphone access failed:", err);
+        audioStatus.textContent = 'MIC ACCESS DENIED: Please enable microphone permission in your browser.';
+        audioStatus.className = 'err';
+        recordHint.textContent = 'Failed to capture audio from your device.';
+        return;
+      }
+
+      try {
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(audioStream);
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          try {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            
+            // Transcribe using Groq Whisper API
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'recording.webm');
+            formData.append('model', 'whisper-large-v3');
+
+            const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('sb_groq_key')}`
+              },
+              body: formData
+            });
+
+            if (!response.ok) {
+              const errData = await response.json();
+              throw new Error(errData.error?.message || `HTTP ${response.status}`);
+            }
+
+            const resData = await response.json();
+            transcribedText = resData.text || '';
+
+            if (transcribedText.trim()) {
+              audioStatus.textContent = `Live Transcription: "${transcribedText}"`;
+              audioStatus.className = 'online';
+              audioSelectedName.textContent = `live-voice-recording.txt (${transcribedText.split(/\s+/).length} words)`;
+              audioIndexBtn.disabled = false;
+              recordHint.textContent = 'Transcription complete! Press INDEX to commit to Second Brain.';
+            } else {
+              audioStatus.textContent = 'No speech was detected. Please speak clearly into your mic!';
+              audioStatus.className = 'err';
+              recordHint.textContent = 'Try speaking louder or adjusting your microphone input.';
+            }
+          } catch (err) {
+            console.error("Transcription failed:", err);
+            audioStatus.textContent = `Whisper AI error: ${err.message}`;
+            audioStatus.className = 'err';
+            recordHint.textContent = 'Check your Groq API Key and internet connection.';
+          }
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        recordSeconds = 0;
+        recordTimer.textContent = '00:00';
+        recordBtn.textContent = '⏹ STOP RECORDING';
+        recordBtn.classList.add('recording');
+        recordZone.classList.add('recording');
+        recordTimer.classList.add('recording');
+        recordHint.textContent = 'Listening to your voice... Speak now!';
+
+        recordInterval = setInterval(() => {
+          recordSeconds++;
+          recordTimer.textContent = formatTime(recordSeconds);
+        }, 1000);
+
+      } catch (recErr) {
+        console.error("Failed to initialize MediaRecorder:", recErr);
+        audioStatus.textContent = 'RECORDER ERROR: Your browser does not support on-device audio recording.';
+        audioStatus.className = 'err';
+        recordHint.textContent = 'Try using Chrome, Firefox, or Safari.';
       }
     }
   });
@@ -3129,10 +3127,14 @@ ${contextBlock}`;
   const authClose         = document.getElementById('auth-modal-close');
   const tabLogin          = document.getElementById('tab-login-btn');
   const tabSignup         = document.getElementById('tab-signup-btn');
-  const urlInput          = document.getElementById('sb-url-input');
+  const sbUrlInput        = document.getElementById('sb-url-input');
   const keyInput          = document.getElementById('sb-key-input');
+  const sbUsernameContainer = document.getElementById('sb-username-container');
+  const sbUsernameInput   = document.getElementById('sb-username');
   const emailInput        = document.getElementById('sb-email');
   const passInput         = document.getElementById('sb-pass');
+  const sbGroqInput       = document.getElementById('sb-groq');
+  const sbGroqLabel       = document.getElementById('sb-groq-label');
   const submitBtn         = document.getElementById('sb-auth-submit-btn');
 
   const supabaseProfile   = document.getElementById('supabase-profile');
@@ -3144,14 +3146,35 @@ ${contextBlock}`;
   let sbClient = null;
   let isSignUpMode = false;
 
+  const configSection     = document.getElementById('supabase-config-section');
+  const toggleConfigBtn   = document.getElementById('toggle-config-btn');
+
   // Open & Close Modal
   authBtn.addEventListener('click', () => {
-    urlInput.value = localStorage.getItem('sb_url') || '';
-    keyInput.value = localStorage.getItem('sb_anon_key') || '';
+    const savedUrl = localStorage.getItem('sb_url');
+    const savedKey = localStorage.getItem('sb_anon_key');
+    sbUrlInput.value = savedUrl || '';
+    keyInput.value = savedKey || '';
+
+    if (savedUrl && savedKey) {
+      configSection.style.display = 'none';
+    } else {
+      configSection.style.display = 'flex';
+    }
+
     authModal.classList.add('open');
   });
   authClose.addEventListener('click', () => authModal.classList.remove('open'));
   authModal.addEventListener('click', e => { if (e.target === authModal) authModal.classList.remove('open'); });
+
+  // Toggle backend configurations manually
+  toggleConfigBtn.addEventListener('click', () => {
+    if (configSection.style.display === 'none') {
+      configSection.style.display = 'flex';
+    } else {
+      configSection.style.display = 'none';
+    }
+  });
 
   // Toggle Tab
   tabLogin.addEventListener('click', () => {
@@ -3161,6 +3184,9 @@ ${contextBlock}`;
     tabSignup.style.background = 'none';
     tabSignup.style.color = 'rgba(255,255,255,.4)';
     submitBtn.textContent = 'EXECUTE SIGN IN';
+    sbGroqLabel.textContent = 'GROQ_API_KEY (OPTIONAL ONCE SAVED)://';
+    sbGroqInput.placeholder = 'Leave blank to use saved key';
+    sbUsernameContainer.style.display = 'none';
   });
   tabSignup.addEventListener('click', () => {
     isSignUpMode = true;
@@ -3169,14 +3195,31 @@ ${contextBlock}`;
     tabLogin.style.background = 'none';
     tabLogin.style.color = 'rgba(255,255,255,.4)';
     submitBtn.textContent = 'PROVISION NEW ACCOUNT';
+    sbGroqLabel.textContent = 'GROQ_API_KEY (REQUIRED)://';
+    sbGroqInput.placeholder = 'gsk_xxxxxxxxxxxxxxxxxxxxxxxx';
+    sbUsernameContainer.style.display = 'flex';
   });
+
+  // ─── DEFAULT SUPABASE BACKEND CLOUD SETTINGS (CROSS-DEVICE FALLBACKS) ───
+  // Paste your Supabase Anon Key here so you never have to enter your database credentials again on any new device!
+  const DEFAULT_SUPABASE_URL = "https://aizfypykmaurxillofge.supabase.co"; 
+  const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpemZ5cHlrbWF1cnhpbGxvZmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMzQ5MTYsImV4cCI6MjA5OTcxMDkxNn0.rpLE3Zz-4a4voX-1r-AEqgOiLwr7BuaT9uF7RxnP3kA"; // Paste your anon key here for one-click cross-device login
 
   // Init Supabase Client
   function getSupabaseClient() {
     if (sbClient) return sbClient;
-    const url = urlInput.value.trim() || localStorage.getItem('sb_url');
-    const anonKey = keyInput.value.trim() || localStorage.getItem('sb_anon_key');
+    let url = sbUrlInput.value.trim() || localStorage.getItem('sb_url') || DEFAULT_SUPABASE_URL;
+    const anonKey = keyInput.value.trim() || localStorage.getItem('sb_anon_key') || DEFAULT_SUPABASE_ANON_KEY;
     if (!url || !anonKey) return null;
+
+    // Auto-correct Dashboard URLs to API Endpoint URLs
+    if (url.includes('supabase.com/dashboard/project/')) {
+      const parts = url.split('/');
+      const projectId = parts[parts.length - 1];
+      url = `https://${projectId}.supabase.co`;
+      sbUrlInput.value = url;
+    }
+
     try {
       sbClient = supabase.createClient(url, anonKey);
       localStorage.setItem('sb_url', url);
@@ -3193,6 +3236,8 @@ ${contextBlock}`;
     const client = getSupabaseClient();
     if (!client) {
       showToast("Please provide both Supabase URL and Anon Key first.", true);
+      configSection.style.display = 'flex';
+      sbUrlInput.focus();
       return;
     }
 
@@ -3203,20 +3248,50 @@ ${contextBlock}`;
       return;
     }
 
+    const usernameVal = sbUsernameInput.value.trim();
+    if (isSignUpMode && !usernameVal) {
+      showToast("Please enter a username for your account.", true);
+      return;
+    }
+
+    const groqKeyVal = sbGroqInput.value.trim();
+    if (isSignUpMode && !groqKeyVal) {
+      showToast("Please enter your Groq API Key to set up your account.", true);
+      return;
+    }
+
     submitBtn.disabled = true;
     submitBtn.style.opacity = '0.5';
     showToast(isSignUpMode ? "PROVISIONING ACCOUNT…" : "VERIFYING SECURITY MATRIX…");
 
     try {
       if (isSignUpMode) {
-        const { data, error } = await client.auth.signUp({ email, password });
+        const { data, error } = await client.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: usernameVal
+            }
+          }
+        });
         if (error) throw error;
-        showToast("✓ ACCOUNT CREATED! CHECK YOUR EMAIL FOR VERIFICATION LINK.");
+        
+        // Persist Groq key to localStorage - syncCloudConfig will upload it once authenticated!
+        localStorage.setItem('sb_groq_key', groqKeyVal);
+        
+        showToast("✓ ACCOUNT PROVISIONED! VERIFICATION EMAIL INITIATED.");
         isSignUpMode = false;
         tabLogin.click();
       } else {
         const { data, error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        
+        // If a new key was entered on login, save it
+        if (groqKeyVal) {
+          localStorage.setItem('sb_groq_key', groqKeyVal);
+        }
+        
         showToast("✓ SECURITY MATRIX CLEARED");
         authModal.classList.remove('open');
         updateAuthUI(data.user);
@@ -3247,7 +3322,15 @@ ${contextBlock}`;
       localStorage.setItem('sb_session_user', JSON.stringify(user));
       authBtn.style.display = 'none';
       supabaseProfile.style.display = 'flex';
-      userEmailSpan.textContent = user.email.toUpperCase();
+      
+      const displayName = user.user_metadata?.username || user.email.split('@')[0];
+      userEmailSpan.textContent = displayName.toUpperCase();
+      
+      // Update avatar badge initial
+      const profileBadge = supabaseProfile.querySelector('div');
+      if (profileBadge) {
+        profileBadge.textContent = displayName.charAt(0).toUpperCase();
+      }
     } else {
       authBtn.style.display = 'block';
       supabaseProfile.style.display = 'none';

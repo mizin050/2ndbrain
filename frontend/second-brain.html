@@ -817,16 +817,16 @@
       <!-- Supabase Auth Layout Controls -->
       <button id="supabase-auth-btn" class="cyber-btn mini" style="padding: 4px 10px; font-size: 8px; border: 1px solid var(--orange); background: rgba(255,90,0,0.06); color: var(--orange); cursor: pointer; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">⚡ SIGN IN</button>
       
-      <div id="supabase-profile" style="display: none; align-items: center; gap: 6px; margin-left: 8px; position: relative;">
-        <div id="supabase-user-trigger" style="display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 2px 4px; border-radius: 2px; transition: background 0.2s;" title="Click to open User Control Panel">
-          <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 4px var(--orange); display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; color: #000; font-family: var(--font-mono);">M</div>
-          <span id="supabase-user-email" style="font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 1px; white-space: nowrap;">Email</span>
-          <span style="font-size: 6px; color: var(--orange); opacity: 0.7;">▼</span>
+      <div id="supabase-profile" style="display: none; align-items: center; gap: 6px; margin-left: 8px; position: relative; flex-shrink: 0;">
+        <div id="supabase-user-trigger" style="display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 2px 4px; border-radius: 2px; transition: background 0.2s; flex-shrink: 0;" title="Click to open User Control Panel">
+          <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 4px var(--orange); display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; color: #000; font-family: var(--font-mono); flex-shrink: 0;">M</div>
+          <span id="supabase-user-email" style="font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 1px; white-space: nowrap; flex-shrink: 0;">Email</span>
+          <span style="font-size: 6px; color: var(--orange); opacity: 0.7; flex-shrink: 0;">▼</span>
         </div>
 
-        <!-- Always Visible Compact Arrow-only Buttons -->
-        <button id="supabase-sync-btn" title="Backup memories to Cloud Database (Sync)" style="background: rgba(0, 255, 204, 0.08); border: 1px solid var(--green); color: var(--green); font-size: 10px; cursor: pointer; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; transition: all 0.2s;">↑</button>
-        <button id="supabase-pull-btn" title="Restore memories from Cloud Database (Pull)" style="background: rgba(255, 90, 0, 0.08); border: 1px solid var(--orange); color: var(--orange); font-size: 10px; cursor: pointer; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; transition: all 0.2s;">↓</button>
+        <!-- Always Visible Compact Text Buttons with flex-shrink protection -->
+        <button id="supabase-sync-btn" title="Backup memories to Cloud Database" style="background: rgba(0, 255, 204, 0.08); border: 1px solid var(--green); color: var(--green); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s; flex-shrink: 0;">↑ SYNC</button>
+        <button id="supabase-pull-btn" title="Restore memories from Cloud Database" style="background: rgba(255, 90, 0, 0.08); border: 1px solid var(--orange); color: var(--orange); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s; flex-shrink: 0;">↓ PULL</button>
 
         <!-- The Floating Cyberpunk Dropdown Menu -->
         <div id="supabase-dropdown" style="display: none; position: absolute; top: calc(100% + 6px); right: 0; background: rgba(10, 10, 10, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 90, 0, 0.35); box-shadow: 0 4px 16px rgba(255, 90, 0, 0.15); border-radius: 2px; padding: 8px; z-index: 1000; flex-direction: column; gap: 6px; min-width: 140px;">

@@ -1,6 +1,8 @@
 # 🧠 Second Brain: Unified Neural Interface
 
-> A state-of-the-art, multimodal AI memory assistant that processes unstructured data into an intelligent, queryable knowledge network. Originally built as a web-only local project by our team, Second Brain has been fully re-engineered into a high-performance, cross-platform **Progressive Web App (PWA) with native Android/iOS support** and cross-device database synchronization, custom-tailored for personal mobile use!
+> **See, I'm a very forgetful person — or rather, someone with a cluttered mind. So the idea of having a Second Brain was brought to life.**
+>
+> Originally built as a web-only desktop project by our development team, Second Brain has been fully re-engineered into a high-performance, cross-platform **Progressive Web App (PWA) with native Android/iOS support** and cross-device database synchronization, custom-tailored for personal mobile use!
 
 ---
 

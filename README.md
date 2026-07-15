@@ -1,6 +1,6 @@
 # 🧠 Second Brain: Unified Neural Interface
 
-> A state-of-the-art, multimodal AI memory assistant that processes unstructured data into an intelligent, queryable knowledge network. Originally built as a web-only local project by our team, Second Brain has been fully re-engineered into a high-performance, cross-platform **Progressive Web App (PWA) with native Android support** and cross-device database synchronization!
+> A state-of-the-art, multimodal AI memory assistant that processes unstructured data into an intelligent, queryable knowledge network. Originally built as a web-only local project by our team, Second Brain has been fully re-engineered into a high-performance, cross-platform **Progressive Web App (PWA) with native Android/iOS support** and cross-device database synchronization, custom-tailored for personal mobile use!
 
 ---
 
@@ -8,9 +8,7 @@
 
 **Second Brain** was initially conceived by our development team as a localized, web-only, desktop-bound AI agent. It utilized Python, ChromaDB, and local scripts to parse papers, scrape URLs, and store personal research. 
 
-As the project grew, our goal shifted: **we wanted our second brains to accompany us everywhere.** 
-
-To achieve this, we migrated the platform into an **offline-first, serverless architecture**. By utilizing browser sandboxing, native mobile APIs, and cloud syncing via **Supabase**, Second Brain has evolved into a native-feeling Android & desktop app that you can install directly onto your home screen!
+To take this shared research on the go for personal mobile use, we expanded the platform into a high-performance **Android/iOS Progressive Web App (PWA)**. By migrating to an **offline-first, serverless architecture** backed by browser sandboxing and **Supabase** cloud syncing, the assistant is now custom-tailored to run as a native-feeling standalone app directly from any personal phone or home screen!
 
 ---
 

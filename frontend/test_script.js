@@ -2236,7 +2236,7 @@ ${contextBlock}`;
       userTrigger.title = 'Click to open Control Panel';
       
       // Update avatar badge initial
-      const profileBadge = supabaseProfile.querySelector('div');
+      const profileBadge = document.getElementById('supabase-avatar-badge');
       if (profileBadge) {
         profileBadge.textContent = displayName.charAt(0).toUpperCase();
       }

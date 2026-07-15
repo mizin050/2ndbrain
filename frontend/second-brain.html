@@ -3277,8 +3277,9 @@ ${contextBlock}`;
         });
         if (error) throw error;
         
-        // Persist Groq key to localStorage - syncCloudConfig will upload it once authenticated!
+        // Persist Groq key and username to localStorage
         localStorage.setItem('sb_groq_key', groqKeyVal);
+        localStorage.setItem('sb_username', usernameVal);
         
         showToast("✓ ACCOUNT PROVISIONED! VERIFICATION EMAIL INITIATED.");
         isSignUpMode = false;
@@ -3290,6 +3291,12 @@ ${contextBlock}`;
         // If a new key was entered on login, save it
         if (groqKeyVal) {
           localStorage.setItem('sb_groq_key', groqKeyVal);
+        }
+
+        // Cache the cloud username
+        const usernameMeta = data.user.user_metadata?.username;
+        if (usernameMeta) {
+          localStorage.setItem('sb_username', usernameMeta);
         }
         
         showToast("✓ SECURITY MATRIX CLEARED");
@@ -3323,8 +3330,10 @@ ${contextBlock}`;
       authBtn.style.display = 'none';
       supabaseProfile.style.display = 'flex';
       
-      const displayName = user.user_metadata?.username || user.email.split('@')[0];
+      const displayName = user.user_metadata?.username || localStorage.getItem('sb_username') || user.email.split('@')[0];
       userEmailSpan.textContent = displayName.toUpperCase();
+      userEmailSpan.style.cursor = 'pointer';
+      userEmailSpan.title = 'Click to update Username';
       
       // Update avatar badge initial
       const profileBadge = supabaseProfile.querySelector('div');
@@ -3336,6 +3345,31 @@ ${contextBlock}`;
       supabaseProfile.style.display = 'none';
     }
   }
+
+  // Click to change/set username
+  userEmailSpan.addEventListener('click', async () => {
+    const newUsername = prompt("ENTER NEW USERNAME / CODENAME:");
+    if (!newUsername) return;
+    const cleanUsername = newUsername.trim();
+    if (!cleanUsername) return;
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    showToast("UPDATING CODENAME…");
+    try {
+      const { data, error } = await client.auth.updateUser({
+        data: { username: cleanUsername }
+      });
+      if (error) throw error;
+      
+      localStorage.setItem('sb_username', cleanUsername);
+      updateAuthUI(data.user);
+      showToast("✓ USERNAME UPDATED SECURELY!");
+    } catch (e) {
+      showToast("UPDATE ERROR: " + e.message, true);
+    }
+  });
 
   // Cloud Config Sync
   async function syncCloudConfig() {

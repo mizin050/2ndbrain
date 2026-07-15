@@ -818,11 +818,13 @@
       <button id="supabase-auth-btn" class="cyber-btn mini" style="padding: 4px 10px; font-size: 8px; border: 1px solid var(--orange); background: rgba(255,90,0,0.06); color: var(--orange); cursor: pointer; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">⚡ SIGN IN</button>
       
       <div id="supabase-profile" style="display: none; align-items: center; gap: 8px; margin-left: 8px;">
-        <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 4px var(--orange); display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; color: #000; font-family: var(--font-mono);">U</div>
-        <span id="supabase-user-email" style="font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 1px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Email</span>
+        <div id="supabase-user-trigger" style="display: flex; align-items: center; gap: 8px; cursor: pointer;" title="Click to Toggle Sign Out | Double-click to Edit Username">
+          <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 4px var(--orange); display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; color: #000; font-family: var(--font-mono);">U</div>
+          <span id="supabase-user-email" style="font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 1px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Email</span>
+        </div>
         <button id="supabase-sync-btn" title="Backup memories to Cloud Database" style="background: rgba(0, 255, 204, 0.08); border: 1px solid var(--green); color: var(--green); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">↑ SYNC</button>
         <button id="supabase-pull-btn" title="Restore memories from Cloud Database" style="background: rgba(255, 90, 0, 0.08); border: 1px solid var(--orange); color: var(--orange); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">↓ PULL</button>
-        <button id="supabase-logout-btn" title="Sign Out of Account" style="background: rgba(255, 68, 68, 0.08); border: 1px solid var(--red); color: var(--red); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">⚡ SIGN OUT</button>
+        <button id="supabase-logout-btn" title="Sign Out of Account" style="background: rgba(255, 68, 68, 0.08); border: 1px solid var(--red); color: var(--red); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s; display: none;">⚡ SIGN OUT</button>
       </div>
 
       <div id="api-status-dot" title="API status"></div>
@@ -3138,6 +3140,7 @@ ${contextBlock}`;
   const submitBtn         = document.getElementById('sb-auth-submit-btn');
 
   const supabaseProfile   = document.getElementById('supabase-profile');
+  const userTrigger       = document.getElementById('supabase-user-trigger');
   const userEmailSpan     = document.getElementById('supabase-user-email');
   const logoutBtn         = document.getElementById('supabase-logout-btn');
   const syncBtn           = document.getElementById('supabase-sync-btn');
@@ -3332,8 +3335,8 @@ ${contextBlock}`;
       
       const displayName = user.user_metadata?.username || localStorage.getItem('sb_username') || user.email.split('@')[0];
       userEmailSpan.textContent = displayName.toUpperCase();
-      userEmailSpan.style.cursor = 'pointer';
-      userEmailSpan.title = 'Click to update Username';
+      userTrigger.style.cursor = 'pointer';
+      userTrigger.title = 'Click to Toggle Sign Out | Double-click to Edit Username';
       
       // Update avatar badge initial
       const profileBadge = supabaseProfile.querySelector('div');
@@ -3343,11 +3346,22 @@ ${contextBlock}`;
     } else {
       authBtn.style.display = 'block';
       supabaseProfile.style.display = 'none';
+      logoutBtn.style.display = 'none';
     }
   }
 
-  // Click to change/set username
-  userEmailSpan.addEventListener('click', async () => {
+  // Click to toggle Sign Out button visibility
+  userTrigger.addEventListener('click', (e) => {
+    if (logoutBtn.style.display === 'none' || !logoutBtn.style.display) {
+      logoutBtn.style.display = 'inline-block';
+    } else {
+      logoutBtn.style.display = 'none';
+    }
+  });
+
+  // Double-click to change/set username
+  userTrigger.addEventListener('dblclick', async (e) => {
+    e.stopPropagation();
     const newUsername = prompt("ENTER NEW USERNAME / CODENAME:");
     if (!newUsername) return;
     const cleanUsername = newUsername.trim();

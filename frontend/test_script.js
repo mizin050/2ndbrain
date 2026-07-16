@@ -442,6 +442,11 @@
         const systemPrompt = `You are Second Brain, a personalized AI-powered knowledge system acting as the user's long-term memory layer.
 You reside completely on the user's mobile device.
 
+HUMAN CONVERSATIONAL TONE GUIDELINES:
+- Speak in a highly natural, warm, friendly, conversational, and genuinely human voice. Imagine talking directly to a close companion or a coworker.
+- Strictly avoid rigid formatting, markdown tables, dates, times, or precise logs unless the user explicitly asks you for them. Keep descriptions relaxed and organic.
+- Be concise, clean, and helpful.
+
 CONVERSATION CONTEXT:
 - Maintain a continuous, natural, and helpful conversation with the user.
 - Always refer back to and leverage previous messages in the chat history to understand and answer follow-up questions or requests.
@@ -461,8 +466,7 @@ MEMORY RETRIEVAL CONTEXT:
 Use the following local database context to answer their query accurately when relevant:
 ${contextBlock}
 
-If the query cannot be answered using the retrieved context or conversation history, use your general knowledge but mention that it is not in the local Second Brain notes.
-Be concise, clear, and highly precise. Use formatted markdown, lists, and tables when helpful.`;
+If the query cannot be answered using the retrieved context or conversation history, use your general knowledge but mention that it is not in the local Second Brain notes.`;
 
         // Stream from Groq!
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1362,17 +1366,26 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
 
     try {
       const nodes = window.localDatabase.getNodes(ws);
-      const events = [];
+      const eventsByDate = {};
       
+      // 1. Accumulate notes/documents from Vector DB
       nodes.forEach(node => {
         const nodeDates = node.dates && node.dates.length ? node.dates : [node.timestamp.split('T')[0]];
         nodeDates.forEach(dStr => {
           const parts = dStr.split('-');
+          if (parts.length < 2) return;
           const y = parseInt(parts[0]);
           const m = parseInt(parts[1]);
           if (y === calYear && m === calMonth) {
-            events.push({
-              date: dStr,
+            if (!eventsByDate[dStr]) {
+              eventsByDate[dStr] = {
+                date: dStr,
+                document_count: 0,
+                items: []
+              };
+            }
+            eventsByDate[dStr].document_count++;
+            eventsByDate[dStr].items.push({
               source_id: node.source_id,
               source_type: node.source_type,
               text: node.text
@@ -1381,8 +1394,34 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
         });
       });
 
-      // Index events by date string "YYYY-MM-DD"
-      events.forEach(ev => { calEvents[ev.date] = ev; });
+      // 2. Accumulate scheduled reminders from localStorage dynamically (no separate txt files created!)
+      const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
+      reminders.forEach(rem => {
+        if (rem.workspace_id === ws) {
+          const dStr = new Date(rem.time).toISOString().split('T')[0];
+          const parts = dStr.split('-');
+          if (parts.length < 2) return;
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]);
+          if (y === calYear && m === calMonth) {
+            if (!eventsByDate[dStr]) {
+              eventsByDate[dStr] = {
+                date: dStr,
+                document_count: 0,
+                items: []
+              };
+            }
+            eventsByDate[dStr].document_count++;
+            eventsByDate[dStr].items.push({
+              source_id: rem.id,
+              source_type: 'reminder',
+              text: `⏰ [REMINDER] ${rem.text} (${new Date(rem.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`
+            });
+          }
+        }
+      });
+
+      calEvents = eventsByDate;
       loading.classList.remove('visible');
       buildCalGrid(calEvents);
 
@@ -1437,11 +1476,29 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
   */
   function showDayDetail(dateStr, ev) {
     const d = document.getElementById('cal-day-detail');
-    if (ev) {
-      d.innerHTML = `<div class="detail-title">// ${dateStr}</div><div class="detail-item">${ev.document_count} DOCUMENT(S) <span>· ${ev.source_type}</span></div><div class="detail-item" style="font-size:9px;opacity:.6"><span id="cal-source-link" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;" title="Click to preview">${ev.source_id}</span></div>`;
-      d.querySelector('#cal-source-link').addEventListener('click', () => openNodeModalById(ev.source_id, ev.source_type));
+    if (ev && ev.items && ev.items.length) {
+      let html = `<div class="detail-title">// ${dateStr}</div>`;
+      ev.items.forEach((item, idx) => {
+        html += `
+          <div class="detail-item" style="margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px; text-align: left;">
+            <div style="font-weight: bold; font-size: 11px; line-height: 1.3;">${item.text}</div>
+            <div style="font-size: 8px; opacity: 0.6; display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+              <span>TYPE: ${item.source_type.toUpperCase()}</span>
+              ${item.source_type !== 'reminder' ? `<span class="preview-btn" data-id="${item.source_id}" data-type="${item.source_type}" style="cursor:pointer; text-decoration:underline; color:var(--orange); font-weight: bold;">VIEW</span>` : ''}
+            </div>
+          </div>
+        `;
+      });
+      d.innerHTML = html;
+
+      // Add click listeners to preview buttons
+      d.querySelectorAll('.preview-btn').forEach(btn => {
+        btn.onclick = () => {
+          openNodeModalById(btn.dataset.id, btn.dataset.type);
+        };
+      });
     } else {
-      d.innerHTML = `<div class="detail-title">// ${dateStr}</div><div class="detail-item" style="opacity:.5">NO INDEXED DOCUMENTS ON THIS DATE</div>`;
+      d.innerHTML = `<div class="detail-title">// ${dateStr}</div><div class="detail-item" style="opacity:.5">NO INDEXED DOCUMENTS OR REMINDERS ON THIS DATE</div>`;
     }
   }
 
@@ -2609,28 +2666,8 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
 
     showToast(`✓ REMINDER SCHEDULED: "${content.toUpperCase()}"`);
     
-    // Auto sync task/event to the calendar as well!
-    try {
-      const formattedDate = new Date(targetTime).toISOString().split('T')[0];
-      const calendarNodeText = `[REMINDER] ${content} scheduled for ${new Date(targetTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-      const calendarNode = {
-        workspace_id: getWorkspace(),
-        source_id: 'rem_' + Date.now(),
-        source_type: 'txt',
-        text: calendarNodeText,
-        chunks: [calendarNodeText],
-        embeddings: [new Array(384).fill(0)], // Mock embedding for visual calendar sync
-        priority: 1,
-        cluster_id: 1,
-        cluster_name: 'Reminders',
-        dates: [formattedDate],
-        timestamp: new Date().toISOString()
-      };
-      window.localDatabase.saveNode(calendarNode).then(() => {
-        if (typeof fetchCalendar === 'function') fetchCalendar();
-      });
-    } catch (e) {
-      console.warn("Calendar sync failed:", e);
+    if (typeof fetchCalendar === 'function') {
+      fetchCalendar();
     }
   };
 

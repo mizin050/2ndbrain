@@ -2822,6 +2822,94 @@ If the query cannot be answered using the retrieved context or conversation hist
     }
   };
 
+  let alarmAudioInterval = null;
+
+  function triggerAlarmRinging(alarmText) {
+    // Play tone immediately and schedule looping chime if not already running
+    playCyberpunkReminderTone();
+    if (!alarmAudioInterval) {
+      alarmAudioInterval = setInterval(() => {
+        playCyberpunkReminderTone();
+      }, 1500); // Ring every 1.5 seconds!
+    }
+
+    // Display a beautiful, glowing dismiss overlay that stays on screen until dismissed
+    const tc = document.getElementById('toast-container');
+    if (!tc) return;
+
+    const alarmContainer = document.createElement('div');
+    alarmContainer.id = 'active-alarm-overlay';
+    alarmContainer.style.cssText = `
+      background: rgba(10, 10, 10, 0.95);
+      border: 2px solid var(--orange);
+      box-shadow: 0 0 20px rgba(255, 90, 0, 0.4);
+      padding: 14px 20px;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      font-family: var(--font-mono);
+      color: var(--orange);
+      text-align: center;
+      animation: alarmBlink 1s infinite alternate;
+      max-width: 320px;
+      margin: 10px auto;
+      pointer-events: auto;
+    `;
+
+    // Ensure alarm style keyframes are present
+    if (!document.getElementById('alarm-style')) {
+      const style = document.createElement('style');
+      style.id = 'alarm-style';
+      style.textContent = `
+        @keyframes alarmBlink {
+          0% { border-color: rgba(255, 90, 0, 0.4); box-shadow: 0 0 10px rgba(255, 90, 0, 0.2); }
+          100% { border-color: rgba(255, 90, 0, 1); box-shadow: 0 0 30px rgba(255, 90, 0, 0.6); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    alarmContainer.innerHTML = `
+      <div style="font-weight: bold; font-size: 11px; letter-spacing: 2px;">⚡ ALARM ACTIVE ⚡</div>
+      <div style="font-size: 13px; font-weight: bold; color: var(--text); word-break: break-word;">"${alarmText}"</div>
+      <button class="cyber-btn" id="dismiss-alarm-btn" style="
+        background: rgba(255, 90, 0, 0.15);
+        border: 1px solid var(--orange);
+        color: var(--orange);
+        padding: 6px 16px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: bold;
+        cursor: pointer;
+        letter-spacing: 1px;
+        transition: all 0.2s;
+        border-radius: 2px;
+        margin-top: 4px;
+      ">// DISMISS ALARM</button>
+    `;
+
+    // Remove any existing alarm overlay to avoid duplicates
+    const oldAlarm = document.getElementById('active-alarm-overlay');
+    if (oldAlarm) oldAlarm.remove();
+
+    tc.appendChild(alarmContainer);
+
+    // Dismiss click handler
+    const dismissBtn = alarmContainer.querySelector('#dismiss-alarm-btn');
+    dismissBtn.addEventListener('click', () => {
+      if (alarmAudioInterval) {
+        clearInterval(alarmAudioInterval);
+        alarmAudioInterval = null;
+      }
+      alarmContainer.remove();
+      showToast("✓ ALARM DISMISSED");
+    });
+  }
+
   function startRemindersLoop() {
     setInterval(() => {
       const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
@@ -2833,9 +2921,9 @@ If the query cannot be answered using the retrieved context or conversation hist
           rem.fired = true;
           updated = true;
 
-          playCyberpunkReminderTone();
+          // Trigger continuous alarm ringing and PWA notification
+          triggerAlarmRinging(rem.text.toUpperCase());
           triggerBrowserNotification("🧠 SECOND BRAIN", rem.text.toUpperCase());
-          showToast(`🚨 REMINDER: "${rem.text.toUpperCase()}"`);
         }
       });
 

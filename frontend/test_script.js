@@ -2698,21 +2698,44 @@ If the query cannot be answered using the retrieved context or conversation hist
 
   function triggerBrowserNotification(title, body) {
     if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body: body,
-          icon: './icon-192.png',
-          vibrate: [200, 100, 200]
-        });
-      } catch (e) {
-        // Mobile browsers might require ServiceWorker registration to show notification
+      // Force service worker notifications everywhere to guarantee high priority lock-screen system alerts on Android
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {
           registration.showNotification(title, {
             body: body,
             icon: './icon-192.png',
-            vibrate: [200, 100, 200]
+            badge: './icon-192.png',
+            vibrate: [300, 100, 300],
+            tag: 'reminder-alert',
+            renotify: true,
+            requireInteraction: true
           });
-        }).catch(err => console.error("SW notification error:", err));
+        }).catch(() => {
+          // Fallback to standard notification if service worker not available
+          try {
+            new Notification(title, {
+              body: body,
+              icon: './icon-192.png',
+              badge: './icon-192.png',
+              vibrate: [300, 100, 300],
+              tag: 'reminder-alert',
+              renotify: true,
+              requireInteraction: true
+            });
+          } catch (e) {}
+        });
+      } else {
+        try {
+          new Notification(title, {
+            body: body,
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            vibrate: [300, 100, 300],
+            tag: 'reminder-alert',
+            renotify: true,
+            requireInteraction: true
+          });
+        } catch (e) {}
       }
     }
   }
@@ -2935,6 +2958,49 @@ If the query cannot be answered using the retrieved context or conversation hist
 
   // Launch Reminders Loop
   startRemindersLoop();
+
+  // Notification Permission Diagnostic UI
+  const notiBtn = document.getElementById('noti-permission-btn');
+  function updateNotiBtnUI() {
+    if (!notiBtn) return;
+    if (!('Notification' in window)) {
+      notiBtn.style.display = 'none';
+      return;
+    }
+    const perm = Notification.permission;
+    if (perm === 'granted') {
+      notiBtn.textContent = '🔔 ALERTS: ACTIVE';
+      notiBtn.style.borderColor = 'var(--green)';
+      notiBtn.style.color = 'var(--green)';
+      notiBtn.style.background = 'rgba(0, 255, 204, 0.06)';
+    } else if (perm === 'denied') {
+      notiBtn.textContent = '🔕 ALERTS: BLOCKED';
+      notiBtn.style.borderColor = 'var(--red)';
+      notiBtn.style.color = 'var(--red)';
+      notiBtn.style.background = 'rgba(255, 68, 68, 0.06)';
+    } else {
+      notiBtn.textContent = '🔔 ALERTS: ACTIVATE';
+      notiBtn.style.borderColor = 'var(--orange)';
+      notiBtn.style.color = 'var(--orange)';
+      notiBtn.style.background = 'rgba(255, 90, 0, 0.06)';
+    }
+  }
+
+  if (notiBtn) {
+    notiBtn.addEventListener('click', () => {
+      if (!('Notification' in window)) return;
+      Notification.requestPermission().then(perm => {
+        updateNotiBtnUI();
+        if (perm === 'granted') {
+          showToast("✓ NOTIFICATION SYSTEM ONLINE");
+        } else if (perm === 'denied') {
+          showToast("⚠ NOTIFICATIONS BLOCKED BY DEVICE SYSTEM!", true);
+        }
+      });
+    });
+    // Run immediately to show initial status
+    updateNotiBtnUI();
+  }
 
   /* ══════════════════════════════════════════════════════════════════
      CENTRAL CHAT MEMORY GENERATOR & VECTOR INDEXER (STRUCTURED JSON)

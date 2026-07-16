@@ -1,4 +1,4 @@
-const CACHE_NAME = "second-brain-shell-v4";
+const CACHE_NAME = "second-brain-shell-v5";
 const SHELL_ASSETS = [
   "./",
   "./index.html",
@@ -50,8 +50,11 @@ self.addEventListener("message", (event) => {
         self.registration.showNotification(event.data.title, {
           body: event.data.body,
           icon: "./icon-192.png",
-          vibrate: [300, 100, 300],
           badge: "./icon-192.png",
+          vibrate: [300, 100, 300],
+          tag: "reminder-alert",
+          renotify: true,
+          requireInteraction: true,
           data: { url: "./" }
         });
       }, delay);

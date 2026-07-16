@@ -547,6 +547,9 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
 
         // Add final streamed response to chat history
         chatHistory.push({ role: 'assistant', content: cleanedResponseText });
+
+        // Update/Sync the central Chat Memory Node in the database
+        await saveChatTurnToDatabaseNode(text, cleanedResponseText);
       }
 
     } catch (err) {
@@ -2656,6 +2659,67 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
 
   // Launch Reminders Loop
   startRemindersLoop();
+
+  /* ══════════════════════════════════════════════════════════════════
+     CENTRAL CHAT MEMORY GENERATOR & VECTOR INDEXER
+  ══════════════════════════════════════════════════════════════════ */
+  async function saveChatTurnToDatabaseNode(userText, assistantText) {
+    try {
+      const ws = getWorkspace();
+      const sourceId = 'chat_memory_log.txt';
+      
+      // 1. Fetch any existing Chat Memory node from the current workspace
+      const nodes = window.localDatabase.getNodes(ws);
+      let existingNode = nodes.find(n => n.source_id === sourceId);
+      
+      let currentText = "";
+      if (existingNode) {
+        currentText = existingNode.text + "\n\n";
+      } else {
+        currentText = "// CENTRAL CHAT CONTEXT MEMORY LAYER //\n\n";
+      }
+      
+      // Append the new conversational turn
+      const timestamp = new Date().toLocaleString();
+      currentText += `[${timestamp}] USER: ${userText}\n[${timestamp}] ASSISTANT: ${assistantText}`;
+      
+      // 2. Chunks generation
+      const chunks = chunkText(currentText);
+      const embeddings = [];
+      
+      // 3. Compute Embeddings on-device
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkEmbed = await getEmbedding(chunks[i]);
+        embeddings.push(chunkEmbed);
+      }
+      
+      // 4. Formulate the central memory document
+      const node = {
+        workspace_id: ws,
+        source_id: sourceId,
+        source_type: 'txt',
+        text: currentText,
+        chunks: chunks,
+        embeddings: embeddings,
+        priority: 2, // High importance
+        cluster_id: 2, // Distinct visual styling
+        cluster_name: 'Chat Memories',
+        dates: extractDatesFromText(currentText),
+        timestamp: new Date().toISOString()
+      };
+      
+      // 5. Store locally into IndexedDB
+      await window.localDatabase.saveNode(node);
+      
+      // 6. Instantly redraw the visual neural graph map to show the live growing chat log
+      if (typeof restoreGraphNodes === 'function') {
+        restoreGraphNodes();
+      }
+      console.log("💾 Conversational turn successfully synced into central 'chat_memory_log.txt' database node!");
+    } catch (e) {
+      console.warn("Failed to update central chat memory node:", e);
+    }
+  }
 
   }); // DOMContentLoaded
   

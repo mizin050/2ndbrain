@@ -3916,6 +3916,20 @@ If the query cannot be answered using the retrieved context or conversation hist
     reminders.push(reminder);
     localStorage.setItem('sb_reminders', JSON.stringify(reminders));
 
+    // Dispatch reminder to Service Worker for robust operating system background execution (even when PWA is minimized or closed)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(registration => {
+        if (registration.active) {
+          registration.active.postMessage({
+            type: 'SCHEDULE_NOTIFICATION',
+            title: '🧠 SECOND BRAIN',
+            body: content.toUpperCase(),
+            time: targetTime
+          });
+        }
+      }).catch(err => console.warn("SW postMessage failed:", err));
+    }
+
     showToast(`✓ REMINDER SCHEDULED: "${content.toUpperCase()}"`);
     
     if (typeof fetchCalendar === 'function') {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "second-brain-shell-v3";
+const CACHE_NAME = "second-brain-shell-v4";
 const SHELL_ASSETS = [
   "./",
   "./index.html",
@@ -7,7 +7,6 @@ const SHELL_ASSETS = [
   "./icon-512.png",
   "./apple-touch-icon.png"
 ];
-
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -39,5 +38,40 @@ self.addEventListener("fetch", (event) => {
         return response;
       })
       .catch(() => caches.match(event.request))
+  );
+});
+
+// BACKGROUND REMINDERS NOTIFICATION TRIGGER ENGINE
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SCHEDULE_NOTIFICATION") {
+    const delay = event.data.time - Date.now();
+    if (delay > 0) {
+      setTimeout(() => {
+        self.registration.showNotification(event.data.title, {
+          body: event.data.body,
+          icon: "./icon-192.png",
+          vibrate: [300, 100, 300],
+          badge: "./icon-192.png",
+          data: { url: "./" }
+        });
+      }, delay);
+    }
+  }
+});
+
+// Click handler to bring the PWA back into focus!
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.registration.scope) && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow("./");
+      }
+    })
   );
 });

@@ -2661,27 +2661,42 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
   startRemindersLoop();
 
   /* ══════════════════════════════════════════════════════════════════
-     CENTRAL CHAT MEMORY GENERATOR & VECTOR INDEXER
+     CENTRAL CHAT MEMORY GENERATOR & VECTOR INDEXER (STRUCTURED JSON)
   ══════════════════════════════════════════════════════════════════ */
   async function saveChatTurnToDatabaseNode(userText, assistantText) {
     try {
       const ws = getWorkspace();
-      const sourceId = 'chat_memory_log.txt';
+      const sourceId = 'chat_memory_log.json';
       
       // 1. Fetch any existing Chat Memory node from the current workspace
       const nodes = window.localDatabase.getNodes(ws);
       let existingNode = nodes.find(n => n.source_id === sourceId);
       
-      let currentText = "";
+      let chatArray = [];
       if (existingNode) {
-        currentText = existingNode.text + "\n\n";
-      } else {
-        currentText = "// CENTRAL CHAT CONTEXT MEMORY LAYER //\n\n";
+        try {
+          chatArray = JSON.parse(existingNode.text);
+          if (!Array.isArray(chatArray)) chatArray = [];
+        } catch (e) {
+          chatArray = [];
+        }
       }
       
-      // Append the new conversational turn
-      const timestamp = new Date().toLocaleString();
-      currentText += `[${timestamp}] USER: ${userText}\n[${timestamp}] ASSISTANT: ${assistantText}`;
+      // Append the new conversational turn as structured objects
+      const timestamp = new Date().toISOString();
+      chatArray.push({
+        timestamp: timestamp,
+        role: "user",
+        message: userText
+      });
+      chatArray.push({
+        timestamp: timestamp,
+        role: "assistant",
+        message: assistantText
+      });
+      
+      // Serialize the updated JSON array with clean formatting
+      const currentText = JSON.stringify(chatArray, null, 2);
       
       // 2. Chunks generation
       const chunks = chunkText(currentText);
@@ -2697,7 +2712,7 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
       const node = {
         workspace_id: ws,
         source_id: sourceId,
-        source_type: 'txt',
+        source_type: 'json',
         text: currentText,
         chunks: chunks,
         embeddings: embeddings,
@@ -2711,11 +2726,16 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
       // 5. Store locally into IndexedDB
       await window.localDatabase.saveNode(node);
       
+      // Clean up the old leftover text node if it exists
+      try {
+        await window.localDatabase.deleteNode(ws, 'chat_memory_log.txt');
+      } catch (e) {}
+      
       // 6. Instantly redraw the visual neural graph map to show the live growing chat log
       if (typeof restoreGraphNodes === 'function') {
         restoreGraphNodes();
       }
-      console.log("💾 Conversational turn successfully synced into central 'chat_memory_log.txt' database node!");
+      console.log("💾 Conversational turn successfully synced into central 'chat_memory_log.json' database node!");
     } catch (e) {
       console.warn("Failed to update central chat memory node:", e);
     }

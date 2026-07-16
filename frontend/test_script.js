@@ -1000,6 +1000,111 @@ If the query cannot be answered using the retrieved context or conversation hist
      edges (>=0.72, matching the visible-edge threshold), then
      assign each cluster a distinct hue so related nodes read as
      a visual group on the graph. */
+  
+  /* Draw a beautiful jagged, gently vibrating electrical edge */
+  function drawJaggedEdge(ctx, x1, y1, x2, y2, color, opacity, isDotted = false) {
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.8;
+    if (isDotted) {
+      ctx.setLineDash([2, 5]);
+    } else {
+      ctx.setLineDash([]);
+    }
+    
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    
+    if (len < 10) {
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    
+    const segments = Math.max(3, Math.floor(len / 35));
+    const px = -dy / len;
+    const py = dx / len;
+    
+    for (let i = 1; i < segments; i++) {
+      const t = i / segments;
+      let cx = x1 + dx * t;
+      let cy = y1 + dy * t;
+      
+      const scale = Math.sin(t * Math.PI);
+      const animOffset = Math.sin((animFrame + i * 15) * 0.15) * 2;
+      const displacement = (scale * 4) + animOffset;
+      
+      cx += px * displacement;
+      cy += py * displacement;
+      
+      ctx.lineTo(cx, cy);
+    }
+    
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* Draw semantic connection lines between related nodes */
+  function drawConnectionEdges() {
+    // 1. Draw dynamic connection edges with cluster harmonized colors
+    nodeConnections.forEach(conn => {
+      if (conn.similarity < 0.72) return; // only draw meaningful connections
+      const a = docNodes.find(n => n.sourceId === conn.source);
+      const b = docNodes.find(n => n.sourceId === conn.target);
+      if (!a || !b) return;
+      const fadeA = Math.min(1, (animFrame - a.birth) / 45);
+      const fadeB = Math.min(1, (animFrame - b.birth) / 45);
+      const fade  = Math.min(fadeA, fadeB);
+      if (fade <= 0) return;
+      
+      const alpha = fade * ((conn.similarity - 0.72) / 0.28) * 0.7;
+      
+      // Assign custom hue of the whole cluster to the edge if they share a cluster!
+      const hueA = nodeClusterMap[a.sourceId];
+      const hueB = nodeClusterMap[b.sourceId];
+      let edgeColor = '#FF5A00'; // Default orange
+      if (hueA !== undefined && hueA === hueB) {
+        edgeColor = `hsla(${hueA}, 100%, 65%, 0.8)`;
+      }
+      
+      drawJaggedEdge(ctx, a.x, a.y, b.x, b.y, edgeColor, Math.min(0.65, alpha));
+      
+      // Midpoint similarity badge
+      if (conn.similarity > 0.9) {
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        ctx.save();
+        ctx.globalAlpha = fade * 0.45;
+        ctx.fillStyle = edgeColor;
+        ctx.beginPath(); ctx.arc(mx, my, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    });
+
+    // 2. Draw faint random interconnecting background edges to form a rich neural web
+    for (let i = 0; i < docNodes.length; i++) {
+      for (let j = i + 1; j < docNodes.length; j++) {
+        const a = docNodes[i];
+        const b = docNodes[j];
+        
+        // Use a stable, deterministic mathematical key to avoid flickering
+        const sumChar = (a.sourceId.charCodeAt(0) || 0) + (b.sourceId.charCodeAt(a.sourceId.length - 1) || 0) + (b.sourceId.charCodeAt(0) || 0);
+        if (sumChar % 13 === 0) {
+          const dist = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+          if (dist < 160) {
+            drawJaggedEdge(ctx, a.x, a.y, b.x, b.y, 'rgba(255,255,255,0.06)', 0.12, true);
+          }
+        }
+      }
+    }
+  }
+
   const CLUSTER_HUES_DYNAMIC = [24, 200, 280, 140, 330, 50, 170, 260, 10, 100];
   let nodeClusterMap = {}; // sourceId -> { clusterId, hue }
 
@@ -1058,39 +1163,7 @@ If the query cannot be answered using the retrieved context or conversation hist
     ctx.strokeStyle=n.color.fill; ctx.lineWidth=.7; ctx.setLineDash([3,7]); ctx.stroke(); ctx.restore();
   }
 
-  /* Draw semantic connection lines between related nodes */
-  function drawConnectionEdges() {
-    nodeConnections.forEach(conn => {
-      if (conn.similarity < 0.72) return; // only draw meaningful connections
-      const a = docNodes.find(n => n.sourceId === conn.source);
-      const b = docNodes.find(n => n.sourceId === conn.target);
-      if (!a || !b) return;
-      const fadeA = Math.min(1, (animFrame - a.birth) / 45);
-      const fadeB = Math.min(1, (animFrame - b.birth) / 45);
-      const fade  = Math.min(fadeA, fadeB);
-      if (fade <= 0) return;
-      // Strength of line scales with similarity — only show strong connections
-      const alpha = fade * ((conn.similarity - 0.72) / 0.28) * 0.7;
-      ctx.save();
-      ctx.globalAlpha = Math.min(0.65, alpha);
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = '#FF5A00';
-      ctx.lineWidth = 0.7;
-      ctx.setLineDash([3, 7]);
-      ctx.stroke();
-      // Midpoint similarity badge only for very strong connections
-      if (conn.similarity > 0.9) {
-        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-        ctx.globalAlpha = fade * 0.45;
-        ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(255,90,0,0.2)';
-        ctx.beginPath(); ctx.arc(mx, my, 3, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.restore();
-    });
-  }
+  /* Draw semantic connection lines between related nodes are handled above */
   function drawOneNode(n) {
     const fade=n.isCore?1:Math.min(1,(animFrame-n.birth)/40); if(fade<=0) return;
     ctx.save(); ctx.globalAlpha=fade;

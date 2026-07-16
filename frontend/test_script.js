@@ -396,6 +396,16 @@
   async function sendChatMessage() {
     const text = msgInput.value.trim();
     if (!text || isChatLoading) return;
+
+    // Proactively request browser notification permission on direct user send action (enabling Android Chrome & mobile PWA permission popups)
+    if ('Notification' in window && Notification.permission === 'default') {
+      try {
+        Notification.requestPermission();
+      } catch (e) {
+        console.warn("Notification permission request failed:", e);
+      }
+    }
+
     isChatLoading = true;
 
     appendMsg(text, 'user');
@@ -2724,11 +2734,26 @@ If the query cannot be answered using the retrieved context or conversation hist
       const seconds = parseInt(delayVal, 10);
       targetTime += seconds * 1000;
     } else {
-      const parsedTime = parseTimeStringToTimestamp(delayVal);
-      if (parsedTime) {
-        targetTime = parsedTime;
+      // Parse flexible duration formats like "1m", "5 min", "10 minutes", "30s", "1 hour", etc.
+      const durationMatch = delayVal.match(/^(\d+(?:\.\d+)?)\s*(s|sec|second|seconds|m|min|minute|minutes|h|hr|hour|hours)$/i);
+      if (durationMatch) {
+        const value = parseFloat(durationMatch[1]);
+        const unit = durationMatch[2].toLowerCase();
+        if (unit.startsWith('s')) {
+          targetTime += value * 1000;
+        } else if (unit.startsWith('m')) {
+          targetTime += value * 60 * 1000;
+        } else if (unit.startsWith('h')) {
+          targetTime += value * 60 * 60 * 1000;
+        }
       } else {
-        targetTime += 60000; // default 1m
+        // Fall back to wall-clock time format (e.g., "3:00 PM", "15:00")
+        const parsedTime = parseTimeStringToTimestamp(delayVal);
+        if (parsedTime) {
+          targetTime = parsedTime;
+        } else {
+          targetTime += 60000; // default 1m fallback
+        }
       }
     }
 
@@ -2743,10 +2768,6 @@ If the query cannot be answered using the retrieved context or conversation hist
     const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
     reminders.push(reminder);
     localStorage.setItem('sb_reminders', JSON.stringify(reminders));
-
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
 
     showToast(`✓ REMINDER SCHEDULED: "${content.toUpperCase()}"`);
     

@@ -2509,8 +2509,10 @@ If the query cannot be answered using the retrieved context or conversation hist
       if (!user) throw new Error("Unauthorized");
 
       const allNodes = window.localDatabase ? (window.localDatabase.dbCache || []) : [];
+      const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
       const backupContent = JSON.stringify({
         nodes: allNodes,
+        reminders: reminders,
         timestamp: new Date().toISOString()
       });
 
@@ -2544,10 +2546,10 @@ If the query cannot be answered using the retrieved context or conversation hist
       if (!user) throw new Error("Unauthorized");
 
       const { data, error } = await client
-        .from('second_brain_profiles')
-        .select('db_backup')
-        .eq('id', user.id)
-        .maybeSingle();
+         .from('second_brain_profiles')
+         .select('db_backup')
+         .eq('id', user.id)
+         .maybeSingle();
 
       if (error) throw error;
       if (!data || !data.db_backup) {
@@ -2564,6 +2566,15 @@ If the query cannot be answered using the retrieved context or conversation hist
         for (const n of backupData.nodes) {
           await store.put(n);
         }
+        
+        // Dynamic reminders cloud synchronization write
+        if (backupData.reminders) {
+          localStorage.setItem('sb_reminders', JSON.stringify(backupData.reminders));
+          if (typeof fetchCalendar === 'function') {
+            fetchCalendar();
+          }
+        }
+        
         showToast("✓ RESTORE COMPLETED!");
         restoreGraphNodes();
       }

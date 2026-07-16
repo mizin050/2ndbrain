@@ -1661,17 +1661,23 @@ If the query cannot be answered using the retrieved context or conversation hist
           }
         }
         
-        // Parse reminders if present in responseText
+        // Parse reminders if present in responseText (highly robust parsing tolerant of quote styles, order, and whitespace)
         let cleanedResponseText = responseText;
-        const reminderRegex = /\[\[REMINDER:\s*text="([^"]+)"\s*delay="([^"]+)"\]\]/i;
-        const reminderMatch = responseText.match(reminderRegex);
-        if (reminderMatch) {
-          const tag = reminderMatch[0];
-          // Schedule reminder
-          scheduleReminderFromTag(tag);
-          // Strip out the tag from the text
-          cleanedResponseText = responseText.replace(reminderRegex, '').trim();
-          streamContainer.innerHTML = formatStreamingText(cleanedResponseText);
+        const reminderTagRegex = /\[\[REMINDER:\s*([\s\S]+?)\s*\]\]/i;
+        const tagMatch = responseText.match(reminderTagRegex);
+        if (tagMatch) {
+          const rawTag = tagMatch[0];
+          const paramsText = tagMatch[1];
+          const textMatch = paramsText.match(/text=(?:"|')([^'"]+)(?:"|')/i);
+          const delayMatch = paramsText.match(/delay=(?:"|')([^'"]+)(?:"|')/i);
+          
+          if (textMatch && delayMatch) {
+            // Schedule using robust delay string
+            scheduleReminderFromTag(rawTag);
+            // Strip out the tag from response text
+            cleanedResponseText = responseText.replace(reminderTagRegex, '').trim();
+            streamContainer.innerHTML = formatStreamingText(cleanedResponseText);
+          }
         }
 
         // Add final streamed response to chat history
@@ -3738,11 +3744,35 @@ If the query cannot be answered using the retrieved context or conversation hist
      CYBERPUNK REMINDERS ENGINE (WITH WEB AUDIO SYNTH & SYSTEM NOTIFICATIONS)
   ══════════════════════════════════════════════════════════════════ */
   
+  let globalAudioCtx = null;
+  function getUnlockedAudioCtx() {
+    try {
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtxClass) return null;
+      if (!globalAudioCtx) {
+        globalAudioCtx = new AudioCtxClass();
+      }
+      if (globalAudioCtx.state === 'suspended') {
+        globalAudioCtx.resume().catch(() => {});
+      }
+      return globalAudioCtx;
+    } catch (e) {
+      console.warn("AudioContext unlock failed:", e);
+      return null;
+    }
+  }
+
+  // Preemptively unlock AudioContext on any user gesture interaction
+  ['click', 'touchstart', 'keydown'].forEach(evt => {
+    document.addEventListener(evt, () => {
+      getUnlockedAudioCtx();
+    }, { passive: true });
+  });
+
   function playCyberpunkReminderTone() {
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
+      const ctx = getUnlockedAudioCtx();
+      if (!ctx) return;
       const now = ctx.currentTime;
       
       const osc1 = ctx.createOscillator();
@@ -3760,19 +3790,21 @@ If the query cannot be answered using the retrieved context or conversation hist
       osc1.stop(now + 0.6);
 
       setTimeout(() => {
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(659.25, now + 0.12); // E5
-        osc2.frequency.setValueAtTime(1318.51, now + 0.25); // E6
-        
-        gain2.gain.setValueAtTime(0.15, now + 0.12);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
-        
-        osc2.connect(gain2);
-        gain2.connect(ctx.destination);
-        osc2.start(now + 0.12);
-        osc2.stop(now + 0.7);
+        try {
+          const osc2 = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+          osc2.frequency.setValueAtTime(1318.51, ctx.currentTime + 0.13); // E6
+          
+          gain2.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.58);
+          
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.start(ctx.currentTime);
+          osc2.stop(ctx.currentTime + 0.58);
+        } catch (err) {}
       }, 120);
     } catch (e) {
       console.error("Audio synth error:", e);

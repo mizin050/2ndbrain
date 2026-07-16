@@ -2531,56 +2531,7 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
     }
   }
 
-  function showReminderAlertCard(reminderText) {
-    const existing = document.getElementById('supabase-reminder-alert');
-    if (existing) existing.remove();
 
-    const card = document.createElement('div');
-    card.id = 'supabase-reminder-alert';
-    card.style = `
-      position: fixed;
-      top: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-20px);
-      background: rgba(15, 10, 10, 0.98);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--orange);
-      box-shadow: 0 8px 32px rgba(255, 90, 0, 0.3), 0 0 12px rgba(255, 90, 0, 0.2);
-      border-radius: 4px;
-      padding: 16px 24px;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      min-width: 290px;
-      max-width: 90vw;
-      font-family: var(--font-mono);
-      text-align: center;
-      opacity: 0;
-      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    `;
-
-    card.innerHTML = `
-      <div style="font-size: 8px; color: var(--orange); letter-spacing: 2px; font-weight: bold; animation: pulse 1s infinite;">🚨 NEURAL REMINDER TRIGGERED</div>
-      <div style="font-size: 13px; color: var(--text); font-weight: bold; letter-spacing: 0.5px; margin: 4px 0;">${reminderText.toUpperCase()}</div>
-      <button id="dismiss-reminder-btn" style="background: rgba(255, 90, 0, 0.15); border: 1px solid var(--orange); color: var(--orange); font-family: var(--font-mono); font-size: 9px; padding: 4px 14px; border-radius: 2px; cursor: pointer; font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">⚡ DISMISS</button>
-    `;
-
-    document.body.appendChild(card);
-
-    setTimeout(() => {
-      card.style.opacity = '1';
-      card.style.transform = 'translateX(-50%) translateY(0)';
-    }, 50);
-
-    card.querySelector('#dismiss-reminder-btn').onclick = () => {
-      card.style.opacity = '0';
-      card.style.transform = 'translateX(-50%) translateY(-20px)';
-      setTimeout(() => card.remove(), 400);
-    };
-  }
 
   function parseTimeStringToTimestamp(timeStr) {
     const now = new Date();
@@ -2693,7 +2644,7 @@ Be concise, clear, and highly precise. Use formatted markdown, lists, and tables
 
           playCyberpunkReminderTone();
           triggerBrowserNotification("🧠 SECOND BRAIN", rem.text.toUpperCase());
-          showReminderAlertCard(rem.text);
+          showToast(`🚨 REMINDER: "${rem.text.toUpperCase()}"`);
         }
       });
 

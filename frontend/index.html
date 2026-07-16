@@ -1553,13 +1553,31 @@ create policy "Users can read/write their own profiles."
           contextBlock = "No local context found. Please ingest some documents or audio recordings first.";
         }
 
-        // Build the system prompt
+        // Build the system prompt with context, conversational memory directions, and reminders triggering
         const systemPrompt = `You are Second Brain, a personalized AI-powered knowledge system acting as the user's long-term memory layer.
-You reside completely on the user's mobile device. Use the following context to answer their query accurately.
-If the query cannot be answered using the context, use your general knowledge but mention that it is not in the local Second Brain notes.
-Be concise, clear, and highly precise. Use formatted markdown, lists, and tables when helpful.
+You reside completely on the user's mobile device.
 
-${contextBlock}`;
+CONVERSATION CONTEXT:
+- Maintain a continuous, natural, and helpful conversation with the user.
+- Always refer back to and leverage previous messages in the chat history to understand and answer follow-up questions or requests.
+
+REMINDERS TRIGGER SYSTEM:
+- If the user asks you to remind them of something at a specific time or after a duration (e.g., "remind me in 5 seconds to stand up" or "remind me to check the oven at 3:00 PM"):
+  You MUST append a special hidden tag at the very end of your response in the exact format:
+  [[REMINDER: text="Your reminder content" delay="duration_in_seconds_or_time_string"]]
+  
+  Examples:
+  - "remind me in 10 seconds to drink water" -> Append at the end: [[REMINDER: text="Drink water" delay="10"]]
+  - "remind me in 5 minutes to buy milk" -> Append at the end: [[REMINDER: text="Buy milk" delay="300"]]
+  - "remind me to check oven at 3:00 PM" -> Append at the end: [[REMINDER: text="Check oven" delay="15:00"]]
+  - "remind me to call dad at 6:30 PM" -> Append at the end: [[REMINDER: text="Call dad" delay="18:30"]]
+
+MEMORY RETRIEVAL CONTEXT:
+Use the following local database context to answer their query accurately when relevant:
+${contextBlock}
+
+If the query cannot be answered using the retrieved context or conversation history, use your general knowledge but mention that it is not in the local Second Brain notes.
+Be concise, clear, and highly precise. Use formatted markdown, lists, and tables when helpful.`;
 
         // Stream from Groq!
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1629,8 +1647,21 @@ ${contextBlock}`;
           }
         }
         
+        // Parse reminders if present in responseText
+        let cleanedResponseText = responseText;
+        const reminderRegex = /\[\[REMINDER:\s*text="([^"]+)"\s*delay="([^"]+)"\]\]/i;
+        const reminderMatch = responseText.match(reminderRegex);
+        if (reminderMatch) {
+          const tag = reminderMatch[0];
+          // Schedule reminder
+          scheduleReminderFromTag(tag);
+          // Strip out the tag from the text
+          cleanedResponseText = responseText.replace(reminderRegex, '').trim();
+          streamContainer.innerHTML = formatStreamingText(cleanedResponseText);
+        }
+
         // Add final streamed response to chat history
-        chatHistory.push({ role: 'assistant', content: responseText });
+        chatHistory.push({ role: 'assistant', content: cleanedResponseText });
       }
 
     } catch (err) {
@@ -3548,6 +3579,247 @@ ${contextBlock}`;
         .catch(e => console.warn('[SW] Failed:', e));
     });
   }
+
+  /* ══════════════════════════════════════════════════════════════════
+     CYBERPUNK REMINDERS ENGINE (WITH WEB AUDIO SYNTH & SYSTEM NOTIFICATIONS)
+  ══════════════════════════════════════════════════════════════════ */
+  
+  function playCyberpunkReminderTone() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(523.25, now); // C5
+      osc1.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15); // C6 arpeggio glide!
+      
+      gain1.gain.setValueAtTime(0.2, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.6);
+
+      setTimeout(() => {
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(659.25, now + 0.12); // E5
+        osc2.frequency.setValueAtTime(1318.51, now + 0.25); // E6
+        
+        gain2.gain.setValueAtTime(0.15, now + 0.12);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+        
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + 0.12);
+        osc2.stop(now + 0.7);
+      }, 120);
+    } catch (e) {
+      console.error("Audio synth error:", e);
+    }
+  }
+
+  function triggerBrowserNotification(title, body) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, {
+          body: body,
+          icon: './icon-192.png',
+          vibrate: [200, 100, 200]
+        });
+      } catch (e) {
+        // Mobile browsers might require ServiceWorker registration to show notification
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification(title, {
+            body: body,
+            icon: './icon-192.png',
+            vibrate: [200, 100, 200]
+          });
+        }).catch(err => console.error("SW notification error:", err));
+      }
+    }
+  }
+
+  function showReminderAlertCard(reminderText) {
+    const existing = document.getElementById('supabase-reminder-alert');
+    if (existing) existing.remove();
+
+    const card = document.createElement('div');
+    card.id = 'supabase-reminder-alert';
+    card.style = `
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(15, 10, 10, 0.98);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--orange);
+      box-shadow: 0 8px 32px rgba(255, 90, 0, 0.3), 0 0 12px rgba(255, 90, 0, 0.2);
+      border-radius: 4px;
+      padding: 16px 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      min-width: 290px;
+      max-width: 90vw;
+      font-family: var(--font-mono);
+      text-align: center;
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    `;
+
+    card.innerHTML = `
+      <div style="font-size: 8px; color: var(--orange); letter-spacing: 2px; font-weight: bold; animation: pulse 1s infinite;">🚨 NEURAL REMINDER TRIGGERED</div>
+      <div style="font-size: 13px; color: var(--text); font-weight: bold; letter-spacing: 0.5px; margin: 4px 0;">${reminderText.toUpperCase()}</div>
+      <button id="dismiss-reminder-btn" style="background: rgba(255, 90, 0, 0.15); border: 1px solid var(--orange); color: var(--orange); font-family: var(--font-mono); font-size: 9px; padding: 4px 14px; border-radius: 2px; cursor: pointer; font-weight: bold; letter-spacing: 1px; transition: all 0.2s;">⚡ DISMISS</button>
+    `;
+
+    document.body.appendChild(card);
+
+    setTimeout(() => {
+      card.style.opacity = '1';
+      card.style.transform = 'translateX(-50%) translateY(0)';
+    }, 50);
+
+    card.querySelector('#dismiss-reminder-btn').onclick = () => {
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(-50%) translateY(-20px)';
+      setTimeout(() => card.remove(), 400);
+    };
+  }
+
+  function parseTimeStringToTimestamp(timeStr) {
+    const now = new Date();
+    let hours = 0;
+    let minutes = 0;
+
+    const ampmMatch = timeStr.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    if (ampmMatch) {
+      hours = parseInt(ampmMatch[1], 10);
+      minutes = ampmMatch[2] ? parseInt(ampmMatch[2], 10) : 0;
+      const ampm = ampmMatch[3] ? ampmMatch[3].toUpperCase() : null;
+
+      if (ampm === 'PM' && hours < 12) {
+        hours += 12;
+      } else if (ampm === 'AM' && hours === 12) {
+        hours = 0;
+      }
+    } else {
+      const match24 = timeStr.match(/(\d{1,2}):(\d{2})/);
+      if (match24) {
+        hours = parseInt(match24[1], 10);
+        minutes = parseInt(match24[2], 10);
+      } else {
+        return null;
+      }
+    }
+
+    const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
+    if (targetDate.getTime() <= now.getTime()) {
+      targetDate.setDate(targetDate.getDate() + 1);
+    }
+    return targetDate.getTime();
+  }
+
+  window.scheduleReminderFromTag = function(tagText) {
+    const textMatch = tagText.match(/text="([^"]+)"/);
+    const delayMatch = tagText.match(/delay="([^"]+)"/);
+    if (!textMatch || !delayMatch) return;
+
+    const content = textMatch[1];
+    const delayVal = delayMatch[1].trim();
+
+    let targetTime = Date.now();
+
+    if (/^\d+$/.test(delayVal)) {
+      const seconds = parseInt(delayVal, 10);
+      targetTime += seconds * 1000;
+    } else {
+      const parsedTime = parseTimeStringToTimestamp(delayVal);
+      if (parsedTime) {
+        targetTime = parsedTime;
+      } else {
+        targetTime += 60000; // default 1m
+      }
+    }
+
+    const reminder = {
+      id: 'rem_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      workspace_id: getWorkspace(),
+      text: content,
+      time: targetTime,
+      fired: false
+    };
+
+    const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
+    reminders.push(reminder);
+    localStorage.setItem('sb_reminders', JSON.stringify(reminders));
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    showToast(`✓ REMINDER SCHEDULED: "${content.toUpperCase()}"`);
+    
+    // Auto sync task/event to the calendar as well!
+    try {
+      const formattedDate = new Date(targetTime).toISOString().split('T')[0];
+      const calendarNodeText = `[REMINDER] ${content} scheduled for ${new Date(targetTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+      const calendarNode = {
+        workspace_id: getWorkspace(),
+        source_id: 'rem_' + Date.now(),
+        source_type: 'txt',
+        text: calendarNodeText,
+        chunks: [calendarNodeText],
+        embeddings: [new Array(384).fill(0)], // Mock embedding for visual calendar sync
+        priority: 1,
+        cluster_id: 1,
+        cluster_name: 'Reminders',
+        dates: [formattedDate],
+        timestamp: new Date().toISOString()
+      };
+      window.localDatabase.saveNode(calendarNode).then(() => {
+        if (typeof fetchCalendar === 'function') fetchCalendar();
+      });
+    } catch (e) {
+      console.warn("Calendar sync failed:", e);
+    }
+  };
+
+  function startRemindersLoop() {
+    setInterval(() => {
+      const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
+      let updated = false;
+      const now = Date.now();
+
+      reminders.forEach(rem => {
+        if (!rem.fired && rem.time <= now) {
+          rem.fired = true;
+          updated = true;
+
+          playCyberpunkReminderTone();
+          triggerBrowserNotification("🧠 SECOND BRAIN", rem.text.toUpperCase());
+          showReminderAlertCard(rem.text);
+        }
+      });
+
+      if (updated) {
+        localStorage.setItem('sb_reminders', JSON.stringify(reminders));
+      }
+    }, 1000);
+  }
+
+  // Launch Reminders Loop
+  startRemindersLoop();
 
   }); // DOMContentLoaded
   </script>

@@ -955,6 +955,8 @@ If the query cannot be answered using the retrieved context or conversation hist
     const allNodes = [coreNode, ...docNodes];
 
     docNodes.forEach(n => {
+      if (n.isDragging) return; // Skip physics movement if currently being dragged!
+
       // Soft repulsion from every other node (including core)
       allNodes.forEach(other => {
         if (other === n) return;
@@ -1409,11 +1411,19 @@ If the query cannot be answered using the retrieved context or conversation hist
     
     ctx.restore();
   }
+  let draggedNode = null;
+  let hasDragged = false;
+  let dragStartClientX = 0;
+  let dragStartClientY = 0;
+  let ignoreNextClick = false;
+
   function graphLoop() {
     animFrame++;
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,mainC.width,mainC.height); ctx.restore();
     ctx.setTransform(dpr*zoom,0,0,dpr*zoom,panX*dpr,panY*dpr);
-    coreNode.x=cx; coreNode.y=cy;
+    if (!coreNode.isDragging) {
+      coreNode.x=cx; coreNode.y=cy;
+    }
     tickPhysics();
     tickParticles(); docNodes.forEach(drawEdge); drawConnectionEdges(); drawParticles(); docNodes.forEach(drawOneNode); drawOneNode(coreNode);
     requestAnimationFrame(graphLoop);
@@ -1423,18 +1433,40 @@ If the query cannot be answered using the retrieved context or conversation hist
   mainC.addEventListener('mousemove', e => {
     const r=mainC.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
     if(isPanning){panX=panStartX+(e.clientX-panStartMouseX);panY=panStartY+(e.clientY-panStartMouseY);return;}
+    
+    // Dragging logic
+    if (draggedNode) {
+      const dist = Math.hypot(e.clientX - dragStartClientX, e.clientY - dragStartClientY);
+      if (dist > 5) {
+        hasDragged = true;
+      }
+      const wx = (mx - panX) / zoom, wy = (my - panY) / zoom;
+      draggedNode.x = wx;
+      draggedNode.y = wy;
+      draggedNode.vx = 0;
+      draggedNode.vy = 0;
+      mainC.style.cursor = 'grabbing';
+      return;
+    }
+
     const wx=(mx-panX)/zoom, wy=(my-panY)/zoom;
     hovered=null;
     if(Math.hypot(wx-coreNode.x,wy-coreNode.y)<coreNode.r+8){hovered=coreNode;mainC.style.cursor='pointer';return;}
     for(const n of docNodes){ if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){hovered=n;mainC.style.cursor='pointer';return;} }
     mainC.style.cursor='crosshair';
   });
+
   mainC.addEventListener('click', e => {
+    if (ignoreNextClick) {
+      ignoreNextClick = false;
+      return;
+    }
     const r=mainC.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
     const wx=(mx-panX)/zoom, wy=(my-panY)/zoom;
     if(Math.hypot(wx-coreNode.x,wy-coreNode.y)<coreNode.r+8){toggleUploadPopup();return;}
     for(const n of docNodes){ if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){openNodeModal(n);return;} }
   });
+
   mainC.addEventListener('contextmenu', e => {
     e.preventDefault();
     const r=mainC.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
@@ -1442,6 +1474,7 @@ If the query cannot be answered using the retrieved context or conversation hist
     if(Math.hypot(wx-coreNode.x,wy-coreNode.y)<coreNode.r+8){openNodeModal(coreNode);return;}
     for(const n of docNodes){ if(Math.hypot(wx-n.x,wy-n.y)<n.r+6){openNodeModal(n);return;} }
   });
+
   mainC.addEventListener('wheel', e => {
     e.preventDefault();
     const r=mainC.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
@@ -1449,9 +1482,64 @@ If the query cannot be answered using the retrieved context or conversation hist
     const factor=Math.exp(-e.deltaY*.0012), newZoom=Math.min(maxZoom,Math.max(minZoom,zoom*factor));
     panX=mx-wx*newZoom; panY=my-wy*newZoom; zoom=newZoom;
   },{passive:false});
-  mainC.addEventListener('mousedown', e=>{ if(e.button===1){isPanning=true;panStartMouseX=e.clientX;panStartMouseY=e.clientY;panStartX=panX;panStartY=panY;mainC.style.cursor='grabbing';} });
-  window.addEventListener('mousemove', e=>{ if(!isPanning)return; panX=panStartX+(e.clientX-panStartMouseX); panY=panStartY+(e.clientY-panStartMouseY); });
-  window.addEventListener('mouseup', e=>{ if(isPanning&&e.button===1){isPanning=false;mainC.style.cursor='crosshair';} });
+
+  mainC.addEventListener('mousedown', e => {
+    if (e.button === 0) { // Left click: Node drag start
+      const r = mainC.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+      const wx = (mx - panX) / zoom, wy = (my - panY) / zoom;
+      
+      let foundNode = null;
+      if (Math.hypot(wx - coreNode.x, wy - coreNode.y) < coreNode.r + 8) {
+        foundNode = coreNode;
+      } else {
+        for (const n of docNodes) {
+          if (Math.hypot(wx - n.x, wy - n.y) < n.r + 6) {
+            foundNode = n;
+            break;
+          }
+        }
+      }
+
+      if (foundNode) {
+        draggedNode = foundNode;
+        draggedNode.isDragging = true;
+        hasDragged = false;
+        dragStartClientX = e.clientX;
+        dragStartClientY = e.clientY;
+        mainC.style.cursor = 'grabbing';
+        e.preventDefault();
+      }
+    } else if (e.button === 1) { // Middle click: Panning
+      isPanning = true;
+      panStartMouseX = e.clientX;
+      panStartMouseY = e.clientY;
+      panStartX = panX;
+      panStartY = panY;
+      mainC.style.cursor = 'grabbing';
+    }
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (isPanning) {
+      panX = panStartX + (e.clientX - panStartMouseX);
+      panY = panStartY + (e.clientY - panStartMouseY);
+    }
+  });
+
+  window.addEventListener('mouseup', e => {
+    if (draggedNode) {
+      draggedNode.isDragging = false;
+      draggedNode = null;
+      mainC.style.cursor = 'crosshair';
+      if (hasDragged) {
+        ignoreNextClick = true;
+      }
+    }
+    if (isPanning && e.button === 1) {
+      isPanning = false;
+      mainC.style.cursor = 'crosshair';
+    }
+  });
 
   /* Upload popup wiring */
   const uploadPopup = document.getElementById('upload-popup');

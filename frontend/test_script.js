@@ -149,6 +149,48 @@
     return Array.from(output.data);
   }
 
+  // Batch Embeddings with UI responsiveness and fallback safety
+  async function getEmbeddingsBatch(texts, progressCallback) {
+    const pipe = await getEmbedder();
+    const batchSize = 8; // Process 8 chunks at a time for WebAssembly safety and responsiveness
+    const results = [];
+    
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize);
+      
+      if (progressCallback) {
+        progressCallback(i, texts.length);
+      }
+      // Let the browser paint the UI update and process events
+      await new Promise(resolve => setTimeout(resolve, 25));
+      
+      try {
+        const output = await pipe(batch, { pooling: 'mean', normalize: true });
+        const numEmbeddings = batch.length;
+        const embDim = output.dims[1] || (output.data.length / numEmbeddings);
+        
+        for (let j = 0; j < numEmbeddings; j++) {
+          const start = j * embDim;
+          const sub = output.data.subarray ? output.data.subarray(start, start + embDim) : output.data.slice(start, start + embDim);
+          results.push(Array.from(sub));
+        }
+      } catch (err) {
+        console.warn("Batch embedding failed, falling back to sequential for this batch:", err);
+        // Fallback: process the current batch sequentially
+        for (const t of batch) {
+          const output = await pipe(t, { pooling: 'mean', normalize: true });
+          results.push(Array.from(output.data));
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+    }
+    
+    if (progressCallback) {
+      progressCallback(texts.length, texts.length);
+    }
+    return results;
+  }
+
   // Chunker Helper (MiniLM operates best on 256-512 token sized chunks)
   function chunkText(text, chunkSize = 250, chunkOverlap = 50) {
     const words = text.split(/\s+/);
@@ -655,13 +697,12 @@ If the query cannot be answered using the retrieved context or conversation hist
       
       // 2. Chunks generation
       const chunks = chunkText(fileText);
-      const embeddings = [];
 
-      // 3. Compute Embeddings on-device for each chunk
-      for (let i = 0; i < chunks.length; i++) {
-        const chunkEmbed = await getEmbedding(chunks[i]);
-        embeddings.push(chunkEmbed);
-      }
+      // 3. Compute Embeddings on-device in batches with UI responsiveness
+      const embeddings = await getEmbeddingsBatch(chunks, (completed, total) => {
+        const percent = Math.round((completed / total) * 100);
+        statusEl.textContent = `EMBEDDING (${percent}%)`;
+      });
 
       // 4. Extract dates inside the text for calendar/timeline
       const datesFound = extractDatesFromText(fileText);
@@ -714,7 +755,6 @@ If the query cannot be answered using the retrieved context or conversation hist
         }
         // Refresh graph from backend to fetch correct cluster and priority
         setTimeout(async () => {
-          docNodes = [];
           await restoreGraphNodes();
         }, 1500);
       }
@@ -788,7 +828,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       lastHueIdx++;
     }
     const hue = backendClusterHues[clusterId];
-    return `hsla(${hue}, 95%, 55%, 0.48)`;
+    return `hsla(${hue}, 35%, 63%, 0.65)`;
   }
   const PRIORITY_RING = {
     1: { color: '#ff3333', glow: 'rgba(255,51,51,0.7)',  label: 'HIGH',   width: 1.5 },
@@ -802,7 +842,7 @@ If the query cannot be answered using the retrieved context or conversation hist
     3: { fill: '#FF5A00', glow: 'rgba(255,90,0,0.5)', label: 'LOW'    },
   };
 
-  const CORE_R = 26;
+  const CORE_R = 10;
   const NODE_COLORS = [
     {fill:'#FF5A00',glow:'rgba(255,90,0,0.5)'},{fill:'#FF5A00',glow:'rgba(255,90,0,0.5)'},
     {fill:'#FF5A00',glow:'rgba(255,90,0,0.5)'},{fill:'#FF5A00',glow:'rgba(255,90,0,0.5)'},
@@ -815,11 +855,11 @@ If the query cannot be answered using the retrieved context or conversation hist
   const coreNode = { id:'core', label:'YOU', x:0, y:0, r:CORE_R, angle:0, orbitR:0, speed:0, color:{fill:'#FF5A00',glow:'rgba(255,90,0,0.7)'}, isCore:true, birth:0, alpha:1 };
 
   function addDocNode(name, ext, fullId, priority, clusterId, clusterName) {
-    const r = 9;
+    const r = 4.5;
     const prio = priority || 3;
     const color = NODE_BASE;
 
-    // Random starting position — scattered around canvas, not overlapping core
+    // Random starting position — scattered in all directions, not overlapping core
     let px, py, attempts = 0;
     do {
       const minDist = 80, maxDist = Math.min(W, H) * 0.42;
@@ -833,9 +873,9 @@ If the query cannot be answered using the retrieved context or conversation hist
       docNodes.some(n => Math.hypot(n.x - px, n.y - py) < (n.r + r + 8))
     );
 
-    // Random slow drift velocity — gentle but visible
-    const speed = 0.12 + Math.random() * 0.14;
-    const dir   = Math.random() * Math.PI * 2;
+    // Ultra-slow, cinematic drift velocity
+    const speed = 0.03 + Math.random() * 0.04;
+    const dir   = Math.random() * Math.PI * 2; // drift in any direction initially
 
     docNodes.push({
       id: 'n' + Date.now() + docNodes.length,
@@ -856,10 +896,10 @@ If the query cannot be answered using the retrieved context or conversation hist
 
   /* Physics tick — free drift + soft repulsion + cluster attraction + canvas bounce */
   const REPEL_FORCE   = 0.035; // gentle push-apart
-  const CORE_REPEL    = 60;    // keep nodes away from core
+  const CORE_REPEL    = 25;    // keep nodes away from core
   const DAMPING       = 0.992;  // very gentle damping — nodes keep drifting
   const CLUSTER_FORCE = 0.012;  // pull strength along similarity edges
-  const CLUSTER_DIST  = 70;     // ideal resting distance between connected nodes
+  const CLUSTER_DIST  = 145;     // ideal resting distance between connected nodes
 
   function tickPhysics() {
     const allNodes = [coreNode, ...docNodes];
@@ -870,9 +910,24 @@ If the query cannot be answered using the retrieved context or conversation hist
         if (other === n) return;
         const dx = n.x - other.x, dy = n.y - other.y;
         const dist = Math.hypot(dx, dy) || 0.001;
-        const minDist = n.r + (other.isCore ? CORE_REPEL : other.r) + 6;
+        
+        let minDist = n.r + (other.isCore ? CORE_REPEL : other.r) + 6;
+        let repelMultiplier = 1;
+
+        if (!n.isCore && !other.isCore) {
+          if (n.clusterId !== other.clusterId) {
+            // Different clusters: keep original separation
+            minDist = 120; // original repulsion distance
+            repelMultiplier = 2.5; // original push force
+          } else {
+            // Same cluster: spread them out much further to avoid huddling
+            minDist = 95;
+            repelMultiplier = 5.0;
+          }
+        }
+
         if (dist < minDist) {
-          const force = (minDist - dist) / minDist * REPEL_FORCE;
+          const force = ((minDist - dist) / minDist) * REPEL_FORCE * repelMultiplier;
           n.vx += (dx / dist) * force;
           n.vy += (dy / dist) * force;
         }
@@ -890,14 +945,14 @@ If the query cannot be answered using the retrieved context or conversation hist
       n.vx *= DAMPING;
       n.vy *= DAMPING;
 
-      // Speed cap
+      // Slower speed cap
       const spd = Math.hypot(n.vx, n.vy);
-      if (spd > 0.45) { n.vx = (n.vx / spd) * 0.45; n.vy = (n.vy / spd) * 0.45; }
-      // Ensure minimum drift so nodes never fully stop
-      if (spd < 0.04) {
+      if (spd > 0.15) { n.vx = (n.vx / spd) * 0.15; n.vy = (n.vy / spd) * 0.15; }
+      // Slower minimum drift
+      if (spd < 0.01) {
         const a = Math.random() * Math.PI * 2;
-        n.vx += Math.cos(a) * 0.06;
-        n.vy += Math.sin(a) * 0.06;
+        n.vx += Math.cos(a) * 0.015;
+        n.vy += Math.sin(a) * 0.015;
       }
 
       // Move
@@ -911,11 +966,11 @@ If the query cannot be answered using the retrieved context or conversation hist
       if (n.y < pad)      { n.y = pad;       n.vy =  Math.abs(n.vy) * 0.5; }
       if (n.y > H - pad)  { n.y = H - pad;  n.vy = -Math.abs(n.vy) * 0.5; }
 
-      // Regular small nudge so nodes stay alive and drifting
+      // Regular gentle cinematic nudge
       if (Math.random() < 0.015) {
         const a = Math.random() * Math.PI * 2;
-        n.vx += Math.cos(a) * 0.04;
-        n.vy += Math.sin(a) * 0.04;
+        n.vx += Math.cos(a) * 0.01;
+        n.vy += Math.sin(a) * 0.01;
       }
     });
 
@@ -960,27 +1015,58 @@ If the query cannot be answered using the retrieved context or conversation hist
     panY = H/2 - ((bminY + bmaxY)/2) * zoom;
   }
 
-  /* Restore graph nodes from local IndexedDB on page load */
+  /* Restore graph nodes from local IndexedDB on page load without resetting positions */
   async function restoreGraphNodes() {
     try {
       if (!window.localDatabase || !window.localDatabase.db) {
         setTimeout(restoreGraphNodes, 100);
         return;
       }
-      docNodes.length = 0; // Clear existing visual nodes
       const localNodes = window.localDatabase.getNodes(getWorkspace());
+      
+      const localNodeMap = new Map();
       localNodes.forEach(n => {
-        const ext      = n.source_type.toLowerCase();
-        const fullId   = n.source_id;
-        const dispName = fullId.replace(/\.[^.]+$/, '');
-        addDocNode(dispName, ext, fullId, n.priority || 3, n.cluster_id || 0, n.cluster_name || 'General Knowledge');
+        localNodeMap.set(n.source_id, n);
       });
+
+      const initialLength = docNodes.length;
+      
+      // 1. Filter out visual nodes that are no longer in local DB (deleted)
+      docNodes = docNodes.filter(n => localNodeMap.has(n.sourceId));
+
+      // 2. Update existing nodes and collect their source IDs
+      const existingSourceIds = new Set();
+      docNodes.forEach(n => {
+        existingSourceIds.add(n.sourceId);
+        const ln = localNodeMap.get(n.sourceId);
+        if (ln) {
+          n.priority = ln.priority || 3;
+          n.clusterId = ln.cluster_id || 0;
+          n.clusterName = ln.cluster_name || 'General Knowledge';
+        }
+      });
+
+      // 3. Add brand new nodes
+      let addedAny = false;
+      localNodes.forEach(ln => {
+        if (!existingSourceIds.has(ln.source_id)) {
+          const ext      = ln.source_type.toLowerCase();
+          const fullId   = ln.source_id;
+          const dispName = fullId.replace(/\.[^.]+$/, '');
+          addDocNode(dispName, ext, fullId, ln.priority || 3, ln.cluster_id || 0, ln.cluster_name || 'General Knowledge');
+          addedAny = true;
+        }
+      });
+
       document.getElementById('node-count').textContent = docNodes.length;
-      if (localNodes.length) showToast(`RESTORED ${localNodes.length} NODE(S)`);
-      // After nodes load, fetch connections then fit view
-      fetchConnections();
-      // Small delay so node positions are settled before fitting
-      setTimeout(zoomToFit, 200);
+      
+      if (initialLength === 0 && localNodes.length > 0) {
+        showToast(`RESTORED ${localNodes.length} NODE(S)`);
+        fetchConnections();
+        setTimeout(zoomToFit, 200);
+      } else {
+        fetchConnections();
+      }
     } catch (err) {
       console.error('[restoreGraphNodes Error]', err);
     }
@@ -1087,7 +1173,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       const hueB = nodeClusterMap[b.sourceId];
       let edgeColor = '#FF5A00'; // Default orange
       if (hueA !== undefined && hueA === hueB) {
-        edgeColor = `hsla(${hueA}, 100%, 65%, 0.8)`;
+        edgeColor = `hsla(${hueA}, 35%, 63%, 0.65)`;
       }
       
       drawJaggedEdge(ctx, a.x, a.y, b.x, b.y, edgeColor, Math.min(0.65, alpha));
@@ -1169,32 +1255,46 @@ If the query cannot be answered using the retrieved context or conversation hist
   function drawParticles() {
     particles.forEach(p => {
       const prog=p.t/p.dur, x=coreNode.x+(p.nx-coreNode.x)*prog, y=coreNode.y+(p.ny-coreNode.y)*prog;
-      ctx.save(); ctx.globalAlpha=(1-Math.abs(prog-.5)*2)*.9;
-      ctx.beginPath(); ctx.arc(x,y,1.5,0,Math.PI*2); ctx.fillStyle=p.color; ctx.fill(); ctx.restore();
+      ctx.save(); ctx.globalAlpha=(1-Math.abs(prog-.5)*2)*0.95;
+      ctx.beginPath(); ctx.arc(x,y,2.4,0,Math.PI*2); ctx.fillStyle=p.color;
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = p.color;
+      ctx.fill(); ctx.restore();
     });
   }
   function drawEdge(n) {
     const fade=Math.min(1,(animFrame-n.birth)/45); if(fade<=0) return;
-    ctx.save(); ctx.globalAlpha=fade*.3; ctx.beginPath(); ctx.moveTo(coreNode.x,coreNode.y); ctx.lineTo(n.x,n.y);
-    ctx.strokeStyle=n.color.fill; ctx.lineWidth=.7; ctx.setLineDash([3,7]); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.globalAlpha=fade*.65; ctx.beginPath(); ctx.moveTo(coreNode.x,coreNode.y); ctx.lineTo(n.x,n.y);
+    ctx.strokeStyle=n.color.fill; ctx.lineWidth=1.2; ctx.setLineDash([]); ctx.stroke(); ctx.restore();
   }
 
   /* Draw semantic connection lines between related nodes are handled above */
   function drawOneNode(n) {
     const fade=n.isCore?1:Math.min(1,(animFrame-n.birth)/40); if(fade<=0) return;
     ctx.save(); ctx.globalAlpha=fade;
-    const gs=n.isCore?52:28, g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,gs);
-    const gc=n.isCore?'rgba(255,90,0,0.45)':'rgba(255,90,0,0.35)';
+    
+    // Soft orange background glow
+    const gs = n.isCore ? 28 : 16;
+    const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, gs);
+    const gc = n.isCore ? 'rgba(255,90,0,0.5)' : 'rgba(255,90,0,0.35)';
     g.addColorStop(0,gc); g.addColorStop(1,'rgba(0,0,0,0)');
     ctx.beginPath(); ctx.arc(n.x,n.y,gs,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-    if(n.isCore) {
-      const p=(Math.sin(animFrame*.04)+1)/2;
-      ctx.beginPath(); ctx.arc(n.x,n.y,n.r+11+p*5,0,Math.PI*2); ctx.strokeStyle='rgba(255,90,0,0.22)'; ctx.lineWidth=1; ctx.setLineDash([]); ctx.stroke();
-      ctx.beginPath(); ctx.arc(n.x,n.y,n.r+20+p*4,0,Math.PI*2); ctx.strokeStyle='rgba(255,90,0,0.09)'; ctx.lineWidth=1; ctx.stroke();
-    }
+    
     if(hovered===n) { ctx.beginPath(); ctx.arc(n.x,n.y,n.r+7,0,Math.PI*2); ctx.strokeStyle='#FF5A00'; ctx.lineWidth=1; ctx.globalAlpha=fade*.55; ctx.setLineDash([]); ctx.stroke(); ctx.globalAlpha=fade; }
-    // Main node fill — always orange
-    ctx.setLineDash([]); ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2); ctx.fillStyle=n.isCore?'#FF5A00':'rgba(255,90,0,0.38)'; ctx.fill();
+    
+    // Main node fill — solid vibrant orange with a white border for core, semi-transparent for standard nodes
+    ctx.setLineDash([]); ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+    if (n.isCore) {
+      ctx.fillStyle = '#FF5A00';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(255,90,0,0.38)';
+      ctx.fill();
+    }
+    
     // Priority ring — thin line with gap from node edge
     if (!n.isCore) {
       const ring = PRIORITY_RING[n.priority] || PRIORITY_RING[3];
@@ -1210,10 +1310,53 @@ If the query cannot be answered using the retrieved context or conversation hist
       ctx.restore();
       ctx.globalAlpha = fade;
     }
+    
+    // White light glare highlight
     ctx.beginPath(); ctx.arc(n.x,n.y-n.r*.22,n.r*.5,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.13)'; ctx.fill();
-    ctx.fillStyle=n.isCore?'#080800':'#F0EDE0'; ctx.font=`bold ${n.isCore?11:8}px 'Space Mono',monospace`;
-    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(n.isCore?n.label:n.ext,n.x,n.y);
-    if(!n.isCore&&fade>.4) { ctx.globalAlpha=fade*.65; ctx.fillStyle='rgba(240,237,224,0.55)'; ctx.font="7px 'Space Mono',monospace"; ctx.fillText(n.label,n.x,n.y+n.r+10); }
+    
+    // Draw label UNDER the node for both document nodes and core node!
+    if (fade > 0.4) {
+      ctx.save();
+      let labelText = '';
+      if (n.isCore) {
+        let username = 'YOU';
+        try {
+          const sessionUserStr = localStorage.getItem('sb_session_user');
+          if (sessionUserStr) {
+            const user = JSON.parse(sessionUserStr);
+            username = user.user_metadata?.username || localStorage.getItem('sb_username') || user.email?.split('@')[0] || 'YOU';
+          } else {
+            const cached = localStorage.getItem('sb_username');
+            if (cached) username = cached;
+          }
+        } catch (e) {}
+        labelText = username.toUpperCase();
+        
+        // Check if username is an emoji or contains emojis
+        const isEmoji = /(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u.test(labelText);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        
+        if (isEmoji) {
+          ctx.fillStyle = 'rgba(240,237,224,0.85)';
+          ctx.font = "14px sans-serif";
+          ctx.fillText(labelText, n.x, n.y + n.r + 8);
+        } else {
+          ctx.fillStyle = 'rgba(240,237,224,0.85)';
+          ctx.font = "bold 8px 'Space Mono',monospace";
+          ctx.fillText(labelText, n.x, n.y + n.r + 10);
+        }
+      } else {
+        labelText = n.label;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = 'rgba(240,237,224,0.55)';
+        ctx.font = "7px 'Space Mono',monospace";
+        ctx.fillText(labelText, n.x, n.y + n.r + 10);
+      }
+      ctx.restore();
+    }
+    
     ctx.restore();
   }
   function graphLoop() {
@@ -1645,13 +1788,12 @@ If the query cannot be answered using the retrieved context or conversation hist
 
       // 1. Chunks generation
       const chunks = chunkText(cleanedText);
-      const embeddings = [];
 
-      // 2. Compute Embeddings on-device for each chunk
-      for (let i = 0; i < chunks.length; i++) {
-        const chunkEmbed = await getEmbedding(chunks[i]);
-        embeddings.push(chunkEmbed);
-      }
+      // 2. Compute Embeddings on-device in batches with UI responsiveness
+      const embeddings = await getEmbeddingsBatch(chunks, (completed, total) => {
+        const percent = Math.round((completed / total) * 100);
+        urlStatus.textContent = `EMBEDDING (${percent}%)`;
+      });
 
       // 3. Extract dates inside the text for calendar/timeline
       const datesFound = extractDatesFromText(cleanedText);
@@ -1684,7 +1826,6 @@ If the query cannot be answered using the retrieved context or conversation hist
       showToast('URL INDEXED: ' + sourceName);
       
       setTimeout(async () => {
-        docNodes = [];
         await restoreGraphNodes();
       }, 1500);
 
@@ -1879,12 +2020,11 @@ If the query cannot be answered using the retrieved context or conversation hist
 
       // Generate embeddings and index on-device!
       const chunks = chunkText(textToCommit);
-      const embeddings = [];
 
-      for (let i = 0; i < chunks.length; i++) {
-        const chunkEmbed = await getEmbedding(chunks[i]);
-        embeddings.push(chunkEmbed);
-      }
+      const embeddings = await getEmbeddingsBatch(chunks, (completed, total) => {
+        const percent = Math.round((completed / total) * 100);
+        audioStatus.textContent = `VECTORS (${percent}%)`;
+      });
 
       const datesFound = extractDatesFromText(textToCommit);
       const fname = `voice-${Date.now()}.txt`;
@@ -1910,7 +2050,6 @@ If the query cannot be answered using the retrieved context or conversation hist
       showToast('AUDIO MEMORY INDEXED: ' + fname);
       
       setTimeout(async () => {
-        docNodes = [];
         await restoreGraphNodes();
       }, 1500);
 
@@ -2524,7 +2663,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       const { data: { user } } = await client.auth.getUser();
       if (!user) throw new Error("Unauthorized");
 
-      const allNodes = window.localDatabase ? (window.localDatabase.dbCache || []) : [];
+      const allNodes = window.localDatabase ? (window.localDatabase.nodesCache || []) : [];
       const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
       const backupContent = JSON.stringify({
         nodes: allNodes,
@@ -2575,7 +2714,7 @@ If the query cannot be answered using the retrieved context or conversation hist
 
       const backupData = JSON.parse(data.db_backup);
       if (backupData.nodes) {
-        window.localDatabase.dbCache = backupData.nodes;
+        window.localDatabase.nodesCache = backupData.nodes;
         const transaction = window.localDatabase.db.transaction(['nodes'], 'readwrite');
         const store = transaction.objectStore('nodes');
         await store.clear();
@@ -3001,13 +3140,9 @@ If the query cannot be answered using the retrieved context or conversation hist
       
       // 2. Chunks generation
       const chunks = chunkText(currentText);
-      const embeddings = [];
       
-      // 3. Compute Embeddings on-device
-      for (let i = 0; i < chunks.length; i++) {
-        const chunkEmbed = await getEmbedding(chunks[i]);
-        embeddings.push(chunkEmbed);
-      }
+      // 3. Compute Embeddings on-device in responsive batches
+      const embeddings = await getEmbeddingsBatch(chunks);
       
       // 4. Formulate the central memory document
       const node = {

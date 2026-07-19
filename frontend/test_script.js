@@ -237,8 +237,8 @@
     return [...new Set(dates)].sort();
   }
 
-  // Local RAG Context Retrieval
-  async function retrieveLocalContext(workspaceId, queryText, topK = 3) {
+  // Local RAG Context Retrieval with Source Balancing & Higher recall
+  async function retrieveLocalContext(workspaceId, queryText, topK = 6) {
     const queryEmbedding = await getEmbedding(queryText);
     const nodes = window.localDatabase.getNodes(workspaceId);
     const candidates = [];
@@ -257,8 +257,38 @@
         });
       }
     });
+
+    // Sort all candidate chunks by similarity descending
     candidates.sort((a, b) => b.similarity - a.similarity);
-    return candidates.slice(0, topK);
+
+    // Dynamic Source Balancing: Prevent any single file (like chat logs) from dominating the entire context
+    const selected = [];
+    const sourceCounts = {};
+
+    for (const cand of candidates) {
+      if (selected.length >= topK) break;
+
+      const src = cand.source_id;
+      sourceCounts[src] = sourceCounts[src] || 0;
+
+      // Limit to at most 2 chunks from the same file, unless we don't have enough total candidates
+      if (sourceCounts[src] < 2) {
+        selected.push(cand);
+        sourceCounts[src]++;
+      }
+    }
+
+    // Fallback: If we didn't fill topK due to limits, add more from the sorted candidates
+    if (selected.length < topK) {
+      for (const cand of candidates) {
+        if (selected.length >= topK) break;
+        if (!selected.includes(cand)) {
+          selected.push(cand);
+        }
+      }
+    }
+
+    return selected;
   }
 
   // Local Timeline Markdown Generator
@@ -481,7 +511,7 @@
       } else {
         // Run local RAG retrieval!
         showToast("RETRIEVING MEMORY CONTEXT FROM PHONE...");
-        const contextNodes = await retrieveLocalContext(ws, text, 3);
+        const contextNodes = await retrieveLocalContext(ws, text, 6);
         let contextBlock = "";
         if (contextNodes.length > 0) {
           contextBlock = "Here is some relevant context from your Second Brain database:\n\n" +
@@ -490,14 +520,34 @@
           contextBlock = "No local context found. Please ingest some documents or audio recordings first.";
         }
 
+        let activeUsername = 'YOU';
+        try {
+          const sessionUserStr = localStorage.getItem('sb_session_user');
+          if (sessionUserStr) {
+            const user = JSON.parse(sessionUserStr);
+            activeUsername = user.user_metadata?.username || localStorage.getItem('sb_username') || user.email?.split('@')[0] || 'YOU';
+          } else {
+            const cached = localStorage.getItem('sb_username');
+            if (cached) activeUsername = cached;
+          }
+        } catch (e) {}
+
         // Build the system prompt with context, conversational memory directions, and reminders triggering
         const systemPrompt = `You are Second Brain, a personalized AI-powered knowledge system acting as the user's long-term memory layer.
 You reside completely on the user's mobile device.
+
+USER PROFILE:
+- Current User: ${activeUsername}
 
 HUMAN CONVERSATIONAL TONE GUIDELINES:
 - Speak in a highly natural, warm, friendly, conversational, and genuinely human voice. Imagine talking directly to a close companion or a coworker.
 - Strictly avoid rigid formatting, markdown tables, dates, times, or precise logs unless the user explicitly asks you for them. Keep descriptions relaxed and organic.
 - Be concise, clean, and helpful.
+
+MANGLISH / ROMANIZED MALAYALAM SUPPORT:
+- The user may converse in "Manglish" (Malayalam words written using the English/Latin alphabet, such as "njan ara" [Who am I?], "poda" [go away / buddy], "i told him but avan cheythila" [I told him but he didn't do it]).
+- You must demonstrate expert capability in understanding, translating, and replying to Manglish/Malayalam/hybrid inputs fluently. 
+- Interpret the user's meaning accurately, maintain conversational context, and respond back in either smooth conversational English, Manglish, or warm Malayalam depending on what feels most natural and helpful in the conversation!
 
 CONVERSATION CONTEXT:
 - Maintain a continuous, natural, and helpful conversation with the user.
@@ -2622,6 +2672,14 @@ If the query cannot be answered using the retrieved context or conversation hist
     try {
       const { data: { user } } = await client.auth.getUser();
       if (!user) return;
+
+      // Update cached session user and username dynamically from fresh backend profile
+      localStorage.setItem('sb_session_user', JSON.stringify(user));
+      const freshUsername = user.user_metadata?.username;
+      if (freshUsername) {
+        localStorage.setItem('sb_username', freshUsername);
+      }
+      updateAuthUI(user);
 
       const { data, error } = await client
         .from('second_brain_profiles')

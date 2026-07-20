@@ -4243,8 +4243,17 @@ If the query cannot be answered using the retrieved context or conversation hist
               // Paint solid black background
               tempCtx.fillStyle = "#000000";
               tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-              // Draw the source canvas content scaled down perfectly to 250x250
-              tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+              
+              // Calculate 10% crop bounds to zoom in the widget by exactly 10%
+              const sw = canvas.width;
+              const sh = canvas.height;
+              const cropW = sw * 0.90;
+              const cropH = sh * 0.90;
+              const sx = (sw - cropW) / 2;
+              const sy = (sh - cropH) / 2;
+
+              // Draw the zoomed-in central portion of the source canvas onto the 250x250 temp canvas
+              tempCtx.drawImage(canvas, sx, sy, cropW, cropH, 0, 0, tempCanvas.width, tempCanvas.height);
               graphImageB64 = tempCanvas.toDataURL('image/jpeg', 0.7);
             } else {
               graphImageB64 = canvas.toDataURL('image/jpeg', 0.7);

@@ -1144,6 +1144,10 @@ create policy "Users can read/write their own profiles."
 
   <script>
   document.addEventListener('DOMContentLoaded', async function() {
+  if (typeof window.activeGroqKeyIndex === 'undefined') {
+    window.activeGroqKeyIndex = 0;
+  }
+
   // Helper to execute Groq requests with automatic multi-key failover and rate limit protection
   async function executeGroqRequest(fetchCallback) {
     const raw = localStorage.getItem('sb_groq_key') || '';
@@ -1153,7 +1157,10 @@ create policy "Users can read/write their own profiles."
     }
     
     let lastError = null;
-    for (let i = 0; i < keys.length; i++) {
+    const startIndex = window.activeGroqKeyIndex || 0;
+
+    for (let offset = 0; offset < keys.length; offset++) {
+      const i = (startIndex + offset) % keys.length;
       const key = keys[i];
       try {
         const response = await fetchCallback(key);
@@ -1193,10 +1200,12 @@ create policy "Users can read/write their own profiles."
           throw new Error(errMsg);
         }
         
+        // Key is fully valid! Persist this active key index so subsequent messages bypass invalid keys instantly
+        window.activeGroqKeyIndex = i;
         return response;
       } catch (err) {
         lastError = err;
-        if (i < keys.length - 1) {
+        if (offset < keys.length - 1) {
           console.warn(`Key ${i+1} failed, rotating... Error:`, err.message);
           continue;
         }
@@ -3937,6 +3946,7 @@ If the query cannot be answered using the retrieved context or conversation hist
 
   // Open & Close Modal
   authBtn.addEventListener('click', () => {
+    window.activeGroqKeyIndex = 0;
     const savedUrl = localStorage.getItem('sb_url');
     const savedKey = localStorage.getItem('sb_anon_key');
     sbUrlInput.value = savedUrl || '';
@@ -4019,6 +4029,7 @@ If the query cannot be answered using the retrieved context or conversation hist
 
   // Execute Auth
   submitBtn.addEventListener('click', async () => {
+    window.activeGroqKeyIndex = 0;
     const urlVal = sbUrlInput.value.trim();
     const keyVal = keyInput.value.trim();
     const isLocalMode = !urlVal && !keyVal;

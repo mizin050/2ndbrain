@@ -2,83 +2,19 @@
 
 > **See, I'm a very forgetful person — or rather, someone with a cluttered mind. So the idea of having a Second Brain was brought to life.**
 >
-> Originally built as a web-only desktop project by our development team, Second Brain has been fully re-engineered into a high-performance, cross-platform **Progressive Web App (PWA) with native Android/iOS support** and cross-device database synchronization, custom-tailored for personal mobile use!
+> Originally built as a web-only desktop project, Second Brain has been fully re-engineered into a high-performance, cross-platform **Progressive Web App (PWA) and completely native Android Application** using Capacitor. It features real-time cloud synchronization, hardware-native voice recording, a selective multi-reminder engine, and a gorgeous cyberpunk Home Screen Widget!
 
 ---
 
-## 📌 Abstract & Team History
+## 📱 Desktop-to-Mobile Architecture
+Second Brain runs both as a modern, installable **Progressive Web App (PWA)** and as a high-performance **Native Android App**.
 
-**Second Brain** was initially conceived by our development team as a localized, web-only, desktop-bound AI agent. It utilized Python, ChromaDB, and local scripts to parse papers, scrape URLs, and store personal research. 
-
-To take this shared research on the go for personal mobile use, we expanded the platform into a high-performance **Android/iOS Progressive Web App (PWA)**. By migrating to an **offline-first, serverless architecture** backed by browser sandboxing and **Supabase** cloud syncing, the assistant is now custom-tailored to run as a native-feeling standalone app directly from any personal phone or home screen!
-
----
-
-## 📱 Desktop-to-Android PWA Architecture
-
-Second Brain is now a fully certified **Progressive Web App (PWA)**. 
-
-### 🌟 Key Android & Mobile Upgrades:
-- 📲 **Native Installation:** Installs as a standalone application on Android (via Chrome / Samsung Internet) and iOS (via Safari), complete with a futuristic customized home screen icon and splash screen.
-- ⚡ **Offline-First Resilience:** Backed by a custom Service Worker (`service-worker.js`), the entire application shell is cached on your device. It loads **instantly** (even completely offline) with zero network latency.
-- 🎤 **Cross-Browser AI Voice Ingestion:** Standard speech-recognition APIs fail on mobile and browsers like Brave or Firefox. We replaced this with a native hardware **`MediaRecorder` stream capture** that streams raw audio directly to **Groq Whisper AI (`whisper-large-v3`)** for ultra-precise, instant voice-to-text indexing on any mobile device.
-- 🎨 **Responsive Matrix Interface:** The UI adapts seamlessly between an expansive desktop workstation view and a compact, high-performance mobile layout.
-
----
-
-## 🏗️ System Architecture & Data Flow
-
-```
-+────────────────────────────────────────────────────────────+
-│                 Devices (Desktop / Android)                │
-│   [Local IndexedDB/localStorage Workspaces] <--- Fast      │
-+─────────────────────────────┬──────────────────────────────+
-                              │
-              ↑ SYNC          │          ↓ PULL
-        (Cloud Backup)        │     (Cross-Device Restore)
-                              ▼
-+────────────────────────────────────────────────────────────+
-│                Secure Cloud DB (Supabase)                  │
-│       [Profiles]  [Saved Workspaces]  [Memory Nodes]       │
-+─────────────────────────────┬──────────────────────────────+
-                              │
-                              ▼  (On-Demand Stream)
-+────────────────────────────────────────────────────────────+
-│                       AI Layer (Groq)                      │
-│     [Llama 3.1 Chat Stream]  <--->  [Whisper Transcription]│
-+────────────────────────────────────────────────────────────+
-```
-
----
-
-## ⚙️ Upgraded Tech Stack
-
-| Layer | Technology | Status / Role |
-| :--- | :--- | :--- |
-| **Frontend Shell** | Pure HTML5, CSS3, ES6 Vanilla JS | Lightweight, lightning-fast rendering |
-| **PWA Service** | Cache Shell `v3` / Web Manifest | Native Android integration & Offline support |
-| **Database Cloud** | Supabase | Multi-tenant auth, profile config, & memory backup |
-| **LLM Inference** | Groq (**Llama 3.1 8B Instant**) | Low-latency stream reasoning |
-| **Speech-to-Text** | Groq (**Whisper Large v3**) | Hardware-native cross-browser voice transcription |
-
----
-
-## 🚀 Key Features
-
-### 🔐 Neural Security Portal & Custom Usernames
-- Create a private, encrypted account using your Email and a secure Password.
-- Support for **Custom Usernames/Codenames** which personalize the interface, terminal welcomes, and initials.
-- Hides backend database setups automatically once configured, featuring a collapsible manual config drawer.
-
-### 🔌 Zero-Paste Cross-Device Syncing
-- **Default Fallback System:** Hardcode your Supabase URL and public Anon Key once inside the code. Once set, you can log in on **any phone or device using only your Email and Password**!
-- **`↑ SYNC`**: Instantly backup your local workspace memories to the secure cloud.
-- **`↓ PULL`**: Instantly download and merge your cloud backup onto a new phone, desktop, or tablet.
-
-### 🎙️ AI Voice Recorder
-- Simple `⏺ START` and `⏹ STOP` controls.
-- Captures physical microphone streams and processes them into raw audio blobs.
-- Transcribes speech instantly using Groq Whisper AI, inserting it as an editable document draft ready to index!
+### 🌟 Key Upgrades:
+- 📲 **Native Android Container (Capacitor):** Fully packaged into a native Android application container, unlocking native hardware APIs and removing mobile browser sandbox restrictions.
+- ⚡ **Neon Cyberpunk Widget:** A beautiful home screen companion displaying up to 3 upcoming active reminders, sync time, and a **`⚡ QUICK VOX`** action button to launch your voice dictation instantly.
+- ⏰ **Native Local Notifications:** Runs on native OS hardware channels to ring continuous alerts and fire alarms reliably even when the app is completely closed.
+- 🎤 **Cross-Browser AI Voice Ingestion:** Utilizes raw hardware `MediaRecorder` stream capture and feeds it to **Groq Whisper AI (`whisper-large-v3`)** for near-zero latency speech-to-text dictation.
+- 🎨 **Keyboard Optimizations:** Features standard `Enter` to send, `Shift + Enter` for new lines, and mobile soft-keyboard `enterkeyhint="send"` customization to turn your mobile return carriage key into a striking Send button.
 
 ---
 
@@ -87,54 +23,95 @@ Second Brain is now a fully certified **Progressive Web App (PWA)**.
 ```text
 Second-Brain/
 │
-├── frontend/                # Full Client-Side PWA Code
-│   ├── index.html           # Main entry point (Netlify root server landing)
-│   ├── second-brain.html    # Secondary entry point
-│   ├── manifest.json        # Android PWA Installation Manifest
-│   ├── service-worker.js    # Offline caching shell (v3)
-│   ├── icon-192.png         # Standalone launcher icon (192px)
-│   └── icon-512.png         # Standalone launcher icon (512px)
+├── frontend/                # Full Client-Side Web & PWA Code
+│   ├── index.html           # Main entry point (Desktop/Mobile workstation)
+│   ├── second-brain.html    # Secondary workspace interface
+│   ├── manifest.json        # PWA manifest configurations
+│   ├── service-worker.js    # Service Worker offline-first caching
+│   └── test_script.js       # Core logic, database bridges, and sync modules
+│
+├── android/                 # Fully Generated Native Android Workspace
+│   └── app/src/main/
+│       ├── java/.../app/    # Native Java classes (Widget & Capacitor plugin)
+│       └── res/             # Widget XML, shapes, layouts, and system theme drawables
 │
 ├── backend/                 # Optional Python backend API services
 │   ├── Dockerfile           
 │   └── requirements.txt     
 │
-├── chroma_db/               # Legacy local persistent vector storage
-└── README.md                # This documentation
+├── capacitor.config.json    # Capacitor build & folder target bridges
+├── package.json             # Core dependency manifest
+└── README.md                # This comprehensive guide
 ```
 
 ---
 
-## 🔐 Installation & Environment Deployment
+## ⚙️ Upgraded Tech Stack
 
-### 1️⃣ Deploying the PWA (Netlify / Vercel / GitHub Pages)
-Because Second Brain is serverless, you can deploy the `frontend/` folder to **any free static host**!
+| Layer | Technology | Role |
+| :--- | :--- | :--- |
+| **Frontend Shell** | HTML5, CSS3, ES6 Vanilla JS | High-fidelity interactive UI with responsive glassmorphism |
+| **Native Wrapper** | Capacitor 6.0 | Bridges web assets with native mobile APIs and background threads |
+| **Local Alerts** | `@capacitor/local-notifications` | Native system notifications bypassing browser limits |
+| **Database Cloud** | Supabase | Multi-tenant auth, workspace profile config, & real-time sync |
+| **LLM Inference** | Groq (**Llama 3.1 8B**) | Sub-second ultra-low latency chat streaming |
+| **Speech-to-Text** | Groq (**Whisper Large v3**) | Hardware-native voice-to-text transcriber |
 
-1. Commit this repository to your GitHub account.
-2. Link the repository to your hosting service (e.g. **Netlify**).
-3. Set the build Publish Directory to **`frontend`** (or let it build the root folder).
-4. Deploy! Your site will be live at a custom secure URL (e.g. `https://your-site.netlify.app`).
+---
 
-### 2️⃣ Setting Up the Database (Supabase)
-To enable cloud synchronization:
-1. Sign up for a free project at [Supabase](https://supabase.com).
-2. Run the SQL script found in the Setup Guide in your Supabase SQL Editor to provision the profile tables.
-3. Open **`frontend/index.html`** in your code editor.
-4. Set your default credentials on lines **3203-3205**:
+## 🚀 Running Second Brain on Your Physical Phone
+
+Getting your private Second Brain up and running on your actual personal Android phone is incredibly easy. Follow this simple guide to compile, install, and add your new widget!
+
+### 1️⃣ Prepare Your Phone
+1. Go to **Settings > About Phone** (or **About Device**).
+2. Tap **Build Number** exactly **7 times** until your screen says: *"You are now a developer!"*
+3. Go back to main settings, enter the new **Developer Options** section, and turn on **USB Debugging**.
+4. Plug your phone into your computer via a USB cable.
+5. On your phone screen, accept the prompt: *"Allow USB debugging? (Always allow from this computer)"*.
+
+### 2️⃣ Run the Compilation & Installer
+Open your terminal inside the `SecondBrain` root directory and run these commands to configure your environments and push the app directly onto your phone:
+
+#### On Windows (PowerShell):
+```powershell
+# Point to your Android SDK and Android Studio's built-in Java Compiler
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+
+# Sync your latest web assets and compile/run on your physical phone!
+npx cap run android
+```
+
+#### On macOS / Linux:
+```bash
+# Point to your SDK directories
+export ANDROID_HOME=$HOME/Library/Android/sdk
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+
+# Run on physical phone
+npx cap run android
+```
+
+The CLI will detect your physical device, assemble the native build, and boot the app on your phone screen in under a minute!
+
+### 3️⃣ Add the Cyberpunk Widget to Your Home Screen
+1. Go to your phone's home screen.
+2. Long-press empty space and tap **Widgets** (or **Add Widget**).
+3. Search for **Second Brain**.
+4. Drag and drop your gorgeous neon-orange widget onto your screen!
+5. Open your app and add a reminder using a tag in chat (e.g. `<reminder text="Call college friend Kasu" delay="5:00 PM">`). Click Sync—your reminder list and sync time will dynamically light up right on your home screen!
+
+---
+
+## 🔐 Installation & Static Web Deployment
+Because Second Brain is serverless, you can also deploy the browser version for your computer to **any free static host** like Netlify or Vercel:
+
+1. Link this repository to your hosting service (e.g. **Netlify**).
+2. Set the build Publish Directory to **`frontend`**.
+3. Set your default database credentials in `frontend/index.html` (lines **3203-3205**) so your phone and browser can synchronize to the same Supabase instance:
    ```javascript
    const DEFAULT_SUPABASE_URL = "https://your-project-id.supabase.co";
    const DEFAULT_SUPABASE_ANON_KEY = "your-public-anon-key";
    ```
-5. Save, commit, and push! Now your database is auto-configured for every device.
-
-### 3️⃣ Installing on Android:
-1. Open your secure HTTPS deployment URL in **Google Chrome** on your Android phone.
-2. Tap the **three-dot menu** in Chrome's top-right corner.
-3. Tap **Add to Home screen** (or **Install app**).
-4. The application will install as a native standalone app in your launcher!
-
----
-
-## 📈 Future Neural Enhancements
-- 🔊 **TTS Integration:** Let the LLM read back responses in a synthesized physical system voice.
-- ⛓️ **Graph Visualizations:** Render vector memory connections as an interactive, draggable interactive 3D nodes node.
+4. Save and deploy! Both your website and phone app are now synced in real-time.

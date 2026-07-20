@@ -2097,8 +2097,8 @@ If the query cannot be answered using the retrieved context or conversation hist
   const CLUSTER_DIST  = 145;     // ideal resting distance between connected nodes
 
   // Simulated Annealing (Thermal Bloom) variables to speed up sorting on launch
-  let initialSettleFrames = 150; // ~2.5 seconds of high-speed sorting
-  let settleCooldown = 150;      // active countdown
+  let initialSettleFrames = 80;  // ~1.3 seconds of smooth quick settling
+  let settleCooldown = 80;       // active countdown
 
   window.triggerNeuralSettle = function() {
     settleCooldown = initialSettleFrames;
@@ -2107,11 +2107,11 @@ If the query cannot be answered using the retrieved context or conversation hist
   function tickPhysics() {
     const allNodes = [coreNode, ...docNodes];
 
-    // Compute thermal multipliers
+    // Compute thermal multipliers (gentle cooling curve)
     if (settleCooldown > 0) settleCooldown--;
     const settleProgress = settleCooldown / initialSettleFrames; // 1.0 down to 0.0
-    const forceBoost = 1.0 + (14.0 * settleProgress); // up to 15x stronger forces
-    const speedLimit = 0.15 + (2.85 * settleProgress); // speed cap starts at 3.0px/frame and cools to 0.15px/frame
+    const forceBoost = 1.0 + (3.0 * settleProgress); // up to 4x stronger forces for organic sliding
+    const speedLimit = 0.15 + (0.5 * settleProgress); // speed cap starts at 0.65px/frame and cools smoothly to 0.15px/frame
 
     docNodes.forEach(n => {
       if (n.isDragging) return; // Skip physics movement if currently being dragged!

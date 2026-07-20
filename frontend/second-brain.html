@@ -4244,15 +4244,18 @@ If the query cannot be answered using the retrieved context or conversation hist
               tempCtx.fillStyle = "#000000";
               tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
               
-              // Calculate 20% crop bounds to zoom in the widget by exactly 20%
+              // Apply brightness(1.4) filter to make nodes and connectors pop
+              tempCtx.filter = "brightness(1.4)";
+              
+              // Calculate 30% crop bounds to zoom in the widget by exactly 30%
               const sw = canvas.width;
               const sh = canvas.height;
-              const cropW = sw * 0.80;
-              const cropH = sh * 0.80;
+              const cropW = sw * 0.70;
+              const cropH = sh * 0.70;
               const sx = (sw - cropW) / 2;
               const sy = (sh - cropH) / 2;
 
-              // Draw the zoomed-in central portion of the source canvas onto the 250x250 temp canvas
+              // Draw the zoomed-in, 40% brighter central portion of the source canvas onto the 250x250 temp canvas
               tempCtx.drawImage(canvas, sx, sy, cropW, cropH, 0, 0, tempCanvas.width, tempCanvas.height);
               graphImageB64 = tempCanvas.toDataURL('image/jpeg', 0.7);
             } else {

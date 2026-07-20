@@ -4195,7 +4195,9 @@ If the query cannot be answered using the retrieved context or conversation hist
     return targetDate.getTime();
   }
 
-  window.syncWidgetReminders = function() {
+  window.isAppActive = true;
+
+  window.syncWidgetReminders = function(forceImageSync) {
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SecondBrainWidgetPlugin) {
       const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
       const activeReminders = reminders.filter(r => !r.fired).sort((a, b) => a.time - b.time);
@@ -4228,39 +4230,51 @@ If the query cannot be answered using the retrieved context or conversation hist
 
       // Capture the actual rendered canvas from the web view with high-perf standardization!
       let graphImageB64 = "";
-      try {
-        const canvas = document.getElementById('graph-main-canvas');
-        if (canvas) {
-          // Optimize/Standardize canvas to 400x400 for perfect widget performance
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = 400;
-          tempCanvas.height = 400;
-          const tempCtx = tempCanvas.getContext('2d');
-          if (tempCtx) {
-            // Draw the source canvas content scaled down perfectly to 400x400
-            tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
-            graphImageB64 = tempCanvas.toDataURL('image/png');
-          } else {
-            graphImageB64 = canvas.toDataURL('image/png');
+      if (window.isAppActive || forceImageSync) {
+        try {
+          const canvas = document.getElementById('graph-main-canvas');
+          if (canvas) {
+            // Optimize/Standardize canvas to 400x400 for perfect widget performance
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 400;
+            tempCanvas.height = 400;
+            const tempCtx = tempCanvas.getContext('2d');
+            if (tempCtx) {
+              // Draw the source canvas content scaled down perfectly to 400x400
+              tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+              graphImageB64 = tempCanvas.toDataURL('image/png');
+            } else {
+              graphImageB64 = canvas.toDataURL('image/png');
+            }
           }
+        } catch (e) {
+          console.warn("Failed to capture graph canvas:", e);
         }
-      } catch (e) {
-        console.warn("Failed to capture graph canvas:", e);
       }
 
-      window.Capacitor.Plugins.SecondBrainWidgetPlugin.updateWidget({
+      const syncPayload = {
         remindersJson: JSON.stringify(activeReminders),
-        nodesJson: JSON.stringify(nodeTitles),
-        graphImageBase64: graphImageB64
-      }).catch(err => console.warn("Widget sync error:", err));
+        nodesJson: JSON.stringify(nodeTitles)
+      };
+      if (graphImageB64) {
+        syncPayload.graphImageBase64 = graphImageB64;
+      }
+
+      window.Capacitor.Plugins.SecondBrainWidgetPlugin.updateWidget(syncPayload)
+        .catch(err => console.warn("Widget sync error:", err));
     }
   };
 
   // Capture the graph canvas on pause/minimizing so the launcher widget is instantly updated
   document.addEventListener('pause', () => {
+    window.isAppActive = false;
     if (typeof window.syncWidgetReminders === 'function') {
-      window.syncWidgetReminders();
+      window.syncWidgetReminders(true); // Force one final clean static snapshot on exit
     }
+  });
+
+  document.addEventListener('resume', () => {
+    window.isAppActive = true;
   });
 
   window.scheduleReminderFromTag = function(tagText) {

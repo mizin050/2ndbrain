@@ -3178,7 +3178,10 @@ If the query cannot be answered using the retrieved context or conversation hist
                 title: title,
                 body: body,
                 id: Math.floor(Math.random() * 1000000),
-                schedule: { at: new Date(Date.now() + Math.max(0, delayMs)) }
+                schedule: { 
+                  at: new Date(Date.now() + Math.max(0, delayMs)),
+                  allowWhileIdle: true
+                }
               }]
             });
             console.log("Capacitor Native Local Notification scheduled.");

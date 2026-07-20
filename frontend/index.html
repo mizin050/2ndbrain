@@ -4226,12 +4226,42 @@ If the query cannot be answered using the retrieved context or conversation hist
         console.warn("Failed to extract node titles for widget graph:", e);
       }
 
+      // Capture the actual rendered canvas from the web view with high-perf standardization!
+      let graphImageB64 = "";
+      try {
+        const canvas = document.getElementById('graph-main-canvas');
+        if (canvas) {
+          // Optimize/Standardize canvas to 400x400 for perfect widget performance
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = 400;
+          tempCanvas.height = 400;
+          const tempCtx = tempCanvas.getContext('2d');
+          if (tempCtx) {
+            // Draw the source canvas content scaled down perfectly to 400x400
+            tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+            graphImageB64 = tempCanvas.toDataURL('image/png');
+          } else {
+            graphImageB64 = canvas.toDataURL('image/png');
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to capture graph canvas:", e);
+      }
+
       window.Capacitor.Plugins.SecondBrainWidgetPlugin.updateWidget({
         remindersJson: JSON.stringify(activeReminders),
-        nodesJson: JSON.stringify(nodeTitles)
+        nodesJson: JSON.stringify(nodeTitles),
+        graphImageBase64: graphImageB64
       }).catch(err => console.warn("Widget sync error:", err));
     }
   };
+
+  // Capture the graph canvas on pause/minimizing so the launcher widget is instantly updated
+  document.addEventListener('pause', () => {
+    if (typeof window.syncWidgetReminders === 'function') {
+      window.syncWidgetReminders();
+    }
+  });
 
   window.scheduleReminderFromTag = function(tagText) {
     const textMatch = tagText.match(/text="([^"]+)"/);

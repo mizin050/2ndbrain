@@ -29,6 +29,43 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
     static void updateGraphWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.second_brain_graph_widget);
 
+        // Try reading the actual rendered HTML canvas image from SharedPreferences
+        SharedPreferences sharedPref = context.getSharedPreferences("SecondBrainWidget", Context.MODE_PRIVATE);
+        String graphImageBase64 = sharedPref.getString("graphImageBase64", "");
+
+        if (graphImageBase64 != null && !graphImageBase64.isEmpty()) {
+            try {
+                String cleanBase64 = graphImageBase64;
+                if (cleanBase64.startsWith("data:image")) {
+                    cleanBase64 = cleanBase64.substring(cleanBase64.indexOf(",") + 1);
+                }
+                byte[] decodedString = android.util.Base64.decode(cleanBase64, android.util.Base64.DEFAULT);
+                Bitmap decodedByte = android.graphics.BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+                if (decodedByte != null) {
+                    views.setImageViewBitmap(R.id.graph_image, decodedByte);
+
+                    // Setup launch intent to open the main app like standard tapping
+                    Intent clickIntent = new Intent(context, MainActivity.class);
+                    clickIntent.setAction(Intent.ACTION_MAIN);
+                    clickIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+                    clickIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+                    PendingIntent pendingIntent = PendingIntent.getActivity(
+                        context,
+                        0,
+                        clickIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
+                    );
+                    views.setOnClickPendingIntent(R.id.graph_image, pendingIntent);
+
+                    appWidgetManager.updateAppWidget(appWidgetId, views);
+                    return; // Successfully displayed actual app-canvas, return early!
+                }
+            } catch (Exception e) {
+                // Fail-safe: fall back to native vector constellation below if decoding fails
+            }
+        }
+
         // Draw the dynamic floating constellation bitmap
         Bitmap bitmap = Bitmap.createBitmap(CANVAS_SIZE, CANVAS_SIZE, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -44,7 +81,6 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
         }
 
         // 2. Read synced actual nodes list from SharedPreferences
-        SharedPreferences sharedPref = context.getSharedPreferences("SecondBrainWidget", Context.MODE_PRIVATE);
         String nodesJson = sharedPref.getString("nodes", "[]");
         
         ArrayList<String> labelsList = new ArrayList<>();

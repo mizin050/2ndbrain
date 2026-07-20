@@ -1130,6 +1130,19 @@ create policy "Users can read/write their own profiles."
     }
 
     async init() {
+      // Officially request persistent storage from the Android/Chromium WebView kernel
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then((persistent) => {
+          if (persistent) {
+            console.log("Storage persistence officially granted by Android/Chromium kernel.");
+          } else {
+            console.warn("Storage persistence not granted by kernel, but safe within native app sandbox.");
+          }
+        }).catch(err => {
+          console.warn("Storage persistence request failed:", err);
+        });
+      }
+
       return new Promise((resolve, reject) => {
         const request = indexedDB.open(this.dbName, 1);
         request.onupgradeneeded = (e) => {

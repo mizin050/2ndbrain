@@ -2164,6 +2164,25 @@ If the query cannot be answered using the retrieved context or conversation hist
       n.x += n.vx;
       n.y += n.vy;
 
+      // Physical hard-boundary collision with core node (resolve overlaps instantly)
+      const dxCore = n.x - coreNode.x, dyCore = n.y - coreNode.y;
+      const distCore = Math.hypot(dxCore, dyCore) || 0.001;
+      const minCoreDist = n.r + coreNode.r + 6; // combined boundaries + 6px padding
+      if (distCore < minCoreDist) {
+        const overlap = minCoreDist - distCore;
+        n.x += (dxCore / distCore) * overlap;
+        n.y += (dyCore / distCore) * overlap;
+        
+        // Elastic velocity reflection (bounces off the core)
+        const normalX = dxCore / distCore;
+        const normalY = dyCore / distCore;
+        const dot = n.vx * normalX + n.vy * normalY;
+        if (dot < 0) {
+          n.vx -= 1.6 * dot * normalX;
+          n.vy -= 1.6 * dot * normalY;
+        }
+      }
+
       // Bounce off canvas edges (with node radius padding)
       const pad = n.r + 18;
       if (n.x < pad)      { n.x = pad;      n.vx =  Math.abs(n.vx) * 0.5; }

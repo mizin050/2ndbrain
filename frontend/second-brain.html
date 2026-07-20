@@ -1058,8 +1058,14 @@
           </div>
 
           <div style="display:flex;flex-direction:column;gap:4px;">
-            <label id="sb-groq-label" style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;">GROQ_API_KEY (REQUIRED)://</label>
-            <input id="sb-groq" type="password" placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxx" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.25);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
+            <label id="sb-groq-label" style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;">GROQ_API_KEY (KEY #1 IS REQUIRED)://</label>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <input id="sb-groq" type="password" placeholder="Key #1 (Required)" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.25);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
+              <input id="sb-groq-2" type="password" placeholder="Key #2 (Optional Failover)" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.15);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
+              <input id="sb-groq-3" type="password" placeholder="Key #3 (Optional Failover)" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.15);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
+              <input id="sb-groq-4" type="password" placeholder="Key #4 (Optional Failover)" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.15);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
+              <input id="sb-groq-5" type="password" placeholder="Key #5 (Optional Failover)" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.15);color:var(--text);padding:6px 10px;font-family:var(--font-mono);font-size:10px;border-radius:2px;" />
+            </div>
           </div>
         </div>
 
@@ -3860,25 +3866,34 @@ If the query cannot be answered using the retrieved context or conversation hist
   const configSection     = document.getElementById('supabase-config-section');
   const toggleConfigBtn   = document.getElementById('toggle-config-btn');
 
+  function populateGroqKeysFromStorage() {
+    const rawKeys = localStorage.getItem('sb_groq_key') || '';
+    const keys = rawKeys.split(/[\s,;]+/).map(k => k.trim()).filter(Boolean);
+    const ids = ['sb-groq', 'sb-groq-2', 'sb-groq-3', 'sb-groq-4', 'sb-groq-5'];
+    ids.forEach((id, index) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.value = keys[index] || '';
+      }
+    });
+  }
+
   function updateSubmitButtonText() {
     const hasSbConfig = sbUrlInput.value.trim() !== "" || keyInput.value.trim() !== "";
     if (!hasSbConfig) {
       submitBtn.textContent = 'ACTIVATE OFFLINE LOCAL MODE';
       sbUsernameContainer.style.display = 'flex';
       sbUsernameInput.placeholder = 'e.g. neo';
-      sbGroqLabel.textContent = 'GROQ_API_KEY (REQUIRED)://';
-      sbGroqInput.placeholder = 'gsk_xxxxxxxxxxxxxxxxxxxxxxxx';
+      sbGroqLabel.textContent = 'GROQ API KEYS (KEY #1 IS REQUIRED)://';
     } else {
       if (isSignUpMode) {
         submitBtn.textContent = 'PROVISION NEW ACCOUNT';
         sbUsernameContainer.style.display = 'flex';
-        sbGroqLabel.textContent = 'GROQ_API_KEY (REQUIRED)://';
-        sbGroqInput.placeholder = 'gsk_xxxxxxxxxxxxxxxxxxxxxxxx';
+        sbGroqLabel.textContent = 'GROQ API KEYS (KEY #1 IS REQUIRED)://';
       } else {
         submitBtn.textContent = 'EXECUTE SIGN IN';
         sbUsernameContainer.style.display = 'none';
-        sbGroqLabel.textContent = 'GROQ_API_KEY (OPTIONAL ONCE SAVED)://';
-        sbGroqInput.placeholder = 'Leave blank to use saved key';
+        sbGroqLabel.textContent = 'GROQ API KEYS (OPTIONAL ONCE SAVED)://';
       }
     }
   }
@@ -3896,6 +3911,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       configSection.style.display = 'flex';
     }
 
+    populateGroqKeysFromStorage();
     updateSubmitButtonText();
     authModal.classList.add('open');
   });
@@ -3971,7 +3987,16 @@ If the query cannot be answered using the retrieved context or conversation hist
     const isLocalMode = !urlVal && !keyVal;
 
     const usernameVal = sbUsernameInput.value.trim();
-    const groqKeyVal = sbGroqInput.value.trim();
+    
+    // Collect all 5 keys
+    const groqKeys = [
+      sbGroqInput.value.trim(),
+      document.getElementById('sb-groq-2').value.trim(),
+      document.getElementById('sb-groq-3').value.trim(),
+      document.getElementById('sb-groq-4').value.trim(),
+      document.getElementById('sb-groq-5').value.trim()
+    ].filter(Boolean);
+    const groqKeyVal = groqKeys.join(', ');
 
     if (isLocalMode) {
       if (!usernameVal) {
@@ -3979,7 +4004,7 @@ If the query cannot be answered using the retrieved context or conversation hist
         return;
       }
       if (!groqKeyVal && !localStorage.getItem('sb_groq_key')) {
-        showToast("Please enter your Groq API Key.", true);
+        showToast("Please enter at least your first Groq API Key.", true);
         return;
       }
 
@@ -4024,7 +4049,7 @@ If the query cannot be answered using the retrieved context or conversation hist
     }
 
     if (isSignUpMode && !groqKeyVal) {
-      showToast("Please enter your Groq API Key to set up your account.", true);
+      showToast("Please enter at least your first Groq API Key to set up your account.", true);
       return;
     }
 
@@ -4229,6 +4254,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       if (data && data.groq_key) {
         if (!currentGroqKey || currentGroqKey !== data.groq_key) {
           localStorage.setItem('sb_groq_key', data.groq_key);
+          populateGroqKeysFromStorage();
           const groqInput = document.getElementById('groq-key-input');
           if (groqInput) groqInput.value = data.groq_key;
           showToast("✓ GROQ KEY SYNCED FROM CLOUD ACCOUNT");

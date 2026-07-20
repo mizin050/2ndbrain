@@ -1705,11 +1705,17 @@ create policy "Users can read/write their own profiles."
       } else {
         // Run local RAG retrieval!
         showToast("RETRIEVING MEMORY CONTEXT FROM PHONE...");
-        const contextNodes = await retrieveLocalContext(ws, text, 6);
+        const contextNodes = await retrieveLocalContext(ws, text, 3);
         let contextBlock = "";
         if (contextNodes.length > 0) {
           contextBlock = "Here is some relevant context from your Second Brain database:\n\n" +
-            contextNodes.map((n, idx) => `[Document: ${n.source_id}] (Relevance: ${Math.round(n.similarity * 100)}%)\nContext:\n${n.text}`).join('\n\n');
+            contextNodes.map((n, idx) => {
+              let snippet = n.text || '';
+              if (snippet.length > 1200) {
+                snippet = snippet.substring(0, 1200) + '... [TRUNCATED FOR BREVITY]';
+              }
+              return `[Document: ${n.source_id}] (Relevance: ${Math.round(n.similarity * 100)}%)\nContext:\n${snippet}`;
+            }).join('\n\n');
         } else {
           contextBlock = "No local context found. Please ingest some documents or audio recordings first.";
         }
@@ -1783,7 +1789,7 @@ If the query cannot be answered using the retrieved context or conversation hist
               model: 'llama-3.1-8b-instant',
               messages: [
                 { role: 'system', content: systemPrompt },
-                ...chatHistory.slice(-10).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content }))
+                ...chatHistory.slice(-6).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content }))
               ],
               temperature: 0.3,
               stream: true

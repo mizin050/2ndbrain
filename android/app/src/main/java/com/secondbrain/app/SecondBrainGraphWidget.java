@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -13,6 +14,8 @@ import android.graphics.Paint;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.RemoteViews;
+import org.json.JSONArray;
+import java.util.ArrayList;
 
 public class SecondBrainGraphWidget extends AppWidgetProvider {
 
@@ -80,7 +83,7 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
 
         // 1. Draw subtle sci-fi grid dots (with high transparency)
         Paint gridPaint = new Paint();
-        gridPaint.setColor(Color.parseColor("#15FF5E00")); // highly translucent orange dots
+        gridPaint.setColor(Color.parseColor("#15FF5E00"));
         gridPaint.setStyle(Paint.Style.FILL);
         for (int i = 40; i < CANVAS_SIZE; i += 50) {
             for (int j = 40; j < CANVAS_SIZE; j += 50) {
@@ -88,21 +91,48 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
             }
         }
 
-        // 2. Define node positions dynamically with sine/cosine orbital drifts
-        String[] labels = {"KASU", "COLLEGE", "QUEUE", "ALARM", "VOICE", "MEMORY", "WORK", "IDEAS"};
-        float[][] nodes = new float[labels.length][2];
+        // 2. Read synced actual nodes list from SharedPreferences
+        SharedPreferences sharedPref = context.getSharedPreferences("SecondBrainWidget", Context.MODE_PRIVATE);
+        String nodesJson = sharedPref.getString("nodes", "[]");
+        
+        ArrayList<String> labelsList = new ArrayList<>();
+        try {
+            JSONArray arr = new JSONArray(nodesJson);
+            for (int i = 0; i < arr.length(); i++) {
+                labelsList.add(arr.getString(i));
+            }
+        } catch (Exception e) {
+            // handle error silently
+        }
+
+        // Default nodes if none are synced yet
+        if (labelsList.isEmpty()) {
+            labelsList.add("KASU");
+            labelsList.add("COLLEGE");
+            labelsList.add("QUEUE");
+            labelsList.add("ALARM");
+            labelsList.add("VOICE");
+            labelsList.add("MEMORY");
+            labelsList.add("WORK");
+            labelsList.add("IDEAS");
+        }
+
+        int count = labelsList.size();
+        float[][] nodes = new float[count][2];
         
         float centerX = CANVAS_SIZE / 2f;
         float centerY = CANVAS_SIZE / 2f;
-        float radius = 110f;
+        // Adjust spacing based on node count
+        float radius = count > 10 ? 120f : 100f;
 
-        for (int i = 0; i < labels.length; i++) {
-            double angle = (2 * Math.PI * i) / labels.length;
+        for (int i = 0; i < count; i++) {
+            double angle = (2 * Math.PI * i) / count;
             float baseX = centerX + (float) (Math.cos(angle) * radius);
             float baseY = centerY + (float) (Math.sin(angle) * radius);
 
-            float driftX = (float) Math.sin((time * 0.0008) + (i * 1.5)) * 30f;
-            float driftY = (float) Math.cos((time * 0.0006) + (i * 2.1)) * 30f;
+            // Floating wave-like movements
+            float driftX = (float) Math.sin((time * 0.0008) + (i * 1.5)) * 25f;
+            float driftY = (float) Math.cos((time * 0.0006) + (i * 2.1)) * 25f;
 
             nodes[i][0] = baseX + driftX;
             nodes[i][1] = baseY + driftY;
@@ -114,8 +144,8 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
         linePaint.setStrokeWidth(2.0f);
         linePaint.setAntiAlias(true);
 
-        for (int i = 0; i < nodes.length; i++) {
-            for (int j = i + 1; j < nodes.length; j++) {
+        for (int i = 0; i < count; i++) {
+            for (int j = i + 1; j < count; j++) {
                 float dx = nodes[i][0] - nodes[j][0];
                 float dy = nodes[i][1] - nodes[j][1];
                 float dist = (float) Math.sqrt(dx * dx + dy * dy);
@@ -128,25 +158,35 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
             }
         }
 
-        // 4. Draw glowing nodes (without text labels for a super-minimalist 1x1 raw graph design!)
+        // 4. Draw glowing nodes & actual synced labels
         Paint nodePaint = new Paint();
         nodePaint.setAntiAlias(true);
         nodePaint.setStyle(Paint.Style.FILL);
 
-        for (int i = 0; i < nodes.length; i++) {
-            nodePaint.setColor(Color.parseColor("#33FF5E00")); // outer glow
-            canvas.drawCircle(nodes[i][0], nodes[i][1], 12f, nodePaint);
+        Paint textPaint = new Paint();
+        textPaint.setColor(Color.parseColor("#CCCCCC"));
+        textPaint.setTextSize(9f);
+        textPaint.setAntiAlias(true);
+        textPaint.setStyle(Paint.Style.FILL);
+        textPaint.setTextAlign(Paint.Align.CENTER);
+
+        for (int i = 0; i < count; i++) {
+            nodePaint.setColor(Color.parseColor("#33FF5E00")); // glow
+            canvas.drawCircle(nodes[i][0], nodes[i][1], 10f, nodePaint);
 
             nodePaint.setColor(Color.parseColor("#FF5E00")); // core
-            canvas.drawCircle(nodes[i][0], nodes[i][1], 5f, nodePaint);
+            canvas.drawCircle(nodes[i][0], nodes[i][1], 4f, nodePaint);
+
+            // Render their actual notes labels in space
+            canvas.drawText(labelsList.get(i), nodes[i][0], nodes[i][1] - 10f, textPaint);
         }
 
         views.setImageViewBitmap(R.id.graph_image, bitmap);
 
-        // 5. Create PendingIntent to launch MainActivity and trigger the Quick Chat modal
+        // 5. Normal launch intent to open the main app like standard tapping
         Intent clickIntent = new Intent(context, MainActivity.class);
-        clickIntent.setAction("com.secondbrain.app.QUICK_CHAT");
-        clickIntent.putExtra("open_quick_chat", true);
+        clickIntent.setAction(Intent.ACTION_MAIN);
+        clickIntent.addCategory(Intent.CATEGORY_LAUNCHER);
         clickIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         PendingIntent pendingIntent = PendingIntent.getActivity(

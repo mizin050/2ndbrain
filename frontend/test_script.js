@@ -3075,8 +3075,28 @@ If the query cannot be answered using the retrieved context or conversation hist
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SecondBrainWidgetPlugin) {
       const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
       const activeReminders = reminders.filter(r => !r.fired).sort((a, b) => a.time - b.time);
+
+      // Fetch actual memory nodes
+      let nodeTitles = [];
+      try {
+        const ws = localStorage.getItem('sb_current_workspace') || 'default';
+        if (window.localDatabase && typeof window.localDatabase.getNodes === 'function') {
+          const nodes = window.localDatabase.getNodes(ws) || [];
+          // Get the titles/source_ids of the most recent 12 nodes to draw on the graph!
+          nodeTitles = nodes.slice(-12).map(n => {
+            let label = n.source_id || 'NODE';
+            label = label.replace(/\.(json|txt|md|html)$/i, '').toUpperCase();
+            if (label.length > 12) label = label.substring(0, 11) + '..';
+            return label;
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to extract node titles for widget graph:", e);
+      }
+
       window.Capacitor.Plugins.SecondBrainWidgetPlugin.updateWidget({
-        remindersJson: JSON.stringify(activeReminders)
+        remindersJson: JSON.stringify(activeReminders),
+        nodesJson: JSON.stringify(nodeTitles)
       }).catch(err => console.warn("Widget sync error:", err));
     }
   };
@@ -3313,14 +3333,6 @@ If the query cannot be answered using the retrieved context or conversation hist
     syncWidgetReminders();
   }
 
-  // Handle widget-triggered instant micro-chat popup
-  if (window.pendingQuickChat) {
-    setTimeout(() => {
-      if (typeof window.triggerQuickChatPopup === 'function') {
-        window.triggerQuickChatPopup();
-      }
-    }, 500);
-  }
 
 
 

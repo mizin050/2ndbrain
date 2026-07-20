@@ -17,11 +17,13 @@ public class SecondBrainWidgetPlugin extends Plugin {
     @PluginMethod
     public void updateWidget(PluginCall call) {
         String remindersJson = call.getString("remindersJson", "[]");
+        String nodesJson = call.getString("nodesJson", "[]");
         
         // Save to SharedPreferences so the Widget can read it
         SharedPreferences sharedPref = getContext().getSharedPreferences("SecondBrainWidget", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPref.edit();
         editor.putString("reminders", remindersJson);
+        editor.putString("nodes", nodesJson);
         editor.apply();
 
         // Trigger App Widget refresh for queue

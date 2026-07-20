@@ -2090,8 +2090,22 @@ If the query cannot be answered using the retrieved context or conversation hist
   const CLUSTER_FORCE = 0.012;  // pull strength along similarity edges
   const CLUSTER_DIST  = 145;     // ideal resting distance between connected nodes
 
+  // Simulated Annealing (Thermal Bloom) variables to speed up sorting on launch
+  let initialSettleFrames = 150; // ~2.5 seconds of high-speed sorting
+  let settleCooldown = 150;      // active countdown
+
+  window.triggerNeuralSettle = function() {
+    settleCooldown = initialSettleFrames;
+  };
+
   function tickPhysics() {
     const allNodes = [coreNode, ...docNodes];
+
+    // Compute thermal multipliers
+    if (settleCooldown > 0) settleCooldown--;
+    const settleProgress = settleCooldown / initialSettleFrames; // 1.0 down to 0.0
+    const forceBoost = 1.0 + (14.0 * settleProgress); // up to 15x stronger forces
+    const speedLimit = 0.15 + (2.85 * settleProgress); // speed cap starts at 3.0px/frame and cools to 0.15px/frame
 
     docNodes.forEach(n => {
       if (n.isDragging) return; // Skip physics movement if currently being dragged!
@@ -2118,7 +2132,7 @@ If the query cannot be answered using the retrieved context or conversation hist
         }
 
         if (dist < minDist) {
-          const force = ((minDist - dist) / minDist) * REPEL_FORCE * repelMultiplier;
+          const force = ((minDist - dist) / minDist) * REPEL_FORCE * repelMultiplier * forceBoost;
           n.vx += (dx / dist) * force;
           n.vy += (dy / dist) * force;
         }
@@ -2128,19 +2142,19 @@ If the query cannot be answered using the retrieved context or conversation hist
       const dxC = cx - n.x, dyC = cy - n.y;
       const distC = Math.hypot(dxC, dyC);
       if (distC > Math.min(W, H) * 0.38) {
-        n.vx += (dxC / distC) * 0.004;
-        n.vy += (dyC / distC) * 0.004;
+        n.vx += (dxC / distC) * 0.004 * forceBoost;
+        n.vy += (dyC / distC) * 0.004 * forceBoost;
       }
 
       // Damping — bleeds velocity so nodes slow to a near-stop naturally
       n.vx *= DAMPING;
       n.vy *= DAMPING;
 
-      // Slower speed cap
+      // Thermal cooled speed limit
       const spd = Math.hypot(n.vx, n.vy);
-      if (spd > 0.15) { n.vx = (n.vx / spd) * 0.15; n.vy = (n.vy / spd) * 0.15; }
-      // Slower minimum drift
-      if (spd < 0.01) {
+      if (spd > speedLimit) { n.vx = (n.vx / spd) * speedLimit; n.vy = (n.vy / spd) * speedLimit; }
+      // Slower minimum drift (disable minimum jittery drift during settling)
+      if (settleCooldown === 0 && spd < 0.01) {
         const a = Math.random() * Math.PI * 2;
         n.vx += Math.cos(a) * 0.015;
         n.vy += Math.sin(a) * 0.015;
@@ -2158,7 +2172,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       if (n.y > H - pad)  { n.y = H - pad;  n.vy = -Math.abs(n.vy) * 0.5; }
 
       // Regular gentle cinematic nudge
-      if (Math.random() < 0.015) {
+      if (settleCooldown === 0 && Math.random() < 0.015) {
         const a = Math.random() * Math.PI * 2;
         n.vx += Math.cos(a) * 0.01;
         n.vy += Math.sin(a) * 0.01;
@@ -2177,7 +2191,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       const dist = Math.hypot(dx, dy) || 0.001;
       const strength = (conn.similarity - 0.72) / 0.28; // 0..1 — stronger pull for tighter matches
       const stretch = dist - CLUSTER_DIST;
-      const force = stretch * CLUSTER_FORCE * strength;
+      const force = stretch * CLUSTER_FORCE * strength * forceBoost;
 
       const fx = (dx / dist) * force;
       const fy = (dy / dist) * force;
@@ -2251,6 +2265,12 @@ If the query cannot be answered using the retrieved context or conversation hist
 
       document.getElementById('node-count').textContent = docNodes.length;
       
+      if (addedAny || (initialLength === 0 && localNodes.length > 0)) {
+        if (typeof window.triggerNeuralSettle === 'function') {
+          window.triggerNeuralSettle();
+        }
+      }
+
       if (initialLength === 0 && localNodes.length > 0) {
         showToast(`RESTORED ${localNodes.length} NODE(S)`);
         fetchConnections();

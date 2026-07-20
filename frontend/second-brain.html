@@ -1154,6 +1154,9 @@ create policy "Users can read/write their own profiles."
         request.onsuccess = () => {
           this.nodesCache = request.result || [];
           resolve(this.nodesCache);
+          if (typeof window.syncWidgetReminders === 'function') {
+            window.syncWidgetReminders();
+          }
         };
         request.onerror = () => reject(request.error);
       });
@@ -1176,6 +1179,9 @@ create policy "Users can read/write their own profiles."
             this.nodesCache.push(node);
           }
           resolve();
+          if (typeof window.syncWidgetReminders === 'function') {
+            window.syncWidgetReminders();
+          }
         };
         request.onerror = () => reject(request.error);
       });
@@ -1189,6 +1195,9 @@ create policy "Users can read/write their own profiles."
         request.onsuccess = () => {
           this.nodesCache = this.nodesCache.filter(n => !(n.workspace_id === workspaceId && n.source_id === sourceId));
           resolve();
+          if (typeof window.syncWidgetReminders === 'function') {
+            window.syncWidgetReminders();
+          }
         };
         request.onerror = () => reject(request.error);
       });
@@ -4197,12 +4206,20 @@ If the query cannot be answered using the retrieved context or conversation hist
         const ws = localStorage.getItem('sb_current_workspace') || 'default';
         if (window.localDatabase && typeof window.localDatabase.getNodes === 'function') {
           const nodes = window.localDatabase.getNodes(ws) || [];
-          // Get the titles/source_ids of the most recent 12 nodes to draw on the graph!
+          // Get the titles and cluster groups of the most recent 12 nodes to draw on the graph!
           nodeTitles = nodes.slice(-12).map(n => {
             let label = n.source_id || 'NODE';
             label = label.replace(/\.(json|txt|md|html)$/i, '').toUpperCase();
             if (label.length > 12) label = label.substring(0, 11) + '..';
-            return label;
+
+            let clusterVal = "0";
+            if (n.cluster_id) clusterVal = String(n.cluster_id);
+            else if (n.clusterId) clusterVal = String(n.clusterId);
+
+            return {
+              label: label,
+              cluster: clusterVal
+            };
           });
         }
       } catch (e) {

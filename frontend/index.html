@@ -2610,7 +2610,17 @@ If the query cannot be answered using the retrieved context or conversation hist
 
   mainC.addEventListener('mousemove', e => {
     const r=mainC.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
-    if(isPanning){panX=panStartX+(e.clientX-panStartMouseX);panY=panStartY+(e.clientY-panStartMouseY);return;}
+    
+    if(isPanning){
+      const dist = Math.hypot(e.clientX - panStartMouseX, e.clientY - panStartMouseY);
+      if (dist > 3) {
+        hasDragged = true;
+      }
+      panX=panStartX+(e.clientX-panStartMouseX);
+      panY=panStartY+(e.clientY-panStartMouseY);
+      mainC.style.cursor = 'grabbing';
+      return;
+    }
     
     // Dragging logic
     if (draggedNode) {
@@ -2662,7 +2672,7 @@ If the query cannot be answered using the retrieved context or conversation hist
   },{passive:false});
 
   mainC.addEventListener('mousedown', e => {
-    if (e.button === 0) { // Left click: Node drag start
+    if (e.button === 0) { // Left click: Node drag start OR background pan
       const r = mainC.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
       const wx = (mx - panX) / zoom, wy = (my - panY) / zoom;
       
@@ -2686,6 +2696,15 @@ If the query cannot be answered using the retrieved context or conversation hist
         dragStartClientY = e.clientY;
         mainC.style.cursor = 'grabbing';
         e.preventDefault();
+      } else {
+        // Drag empty canvas space to Pan!
+        isPanning = true;
+        panStartMouseX = e.clientX;
+        panStartMouseY = e.clientY;
+        panStartX = panX;
+        panStartY = panY;
+        hasDragged = false;
+        mainC.style.cursor = 'grabbing';
       }
     } else if (e.button === 1) { // Middle click: Panning
       isPanning = true;
@@ -2693,12 +2712,94 @@ If the query cannot be answered using the retrieved context or conversation hist
       panStartMouseY = e.clientY;
       panStartX = panX;
       panStartY = panY;
+      hasDragged = false;
       mainC.style.cursor = 'grabbing';
     }
   });
 
-  window.addEventListener('mousemove', e => {
+  // Mobile Touch Support
+  mainC.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const r = mainC.getBoundingClientRect();
+    const mx = t.clientX - r.left, my = t.clientY - r.top;
+    const wx = (mx - panX) / zoom, wy = (my - panY) / zoom;
+
+    let foundNode = null;
+    if (Math.hypot(wx - coreNode.x, wy - coreNode.y) < coreNode.r + 8) {
+      foundNode = coreNode;
+    } else {
+      for (const n of docNodes) {
+        if (Math.hypot(wx - n.x, wy - n.y) < n.r + 6) {
+          foundNode = n;
+          break;
+        }
+      }
+    }
+
+    if (foundNode) {
+      draggedNode = foundNode;
+      draggedNode.isDragging = true;
+      hasDragged = false;
+      dragStartClientX = t.clientX;
+      dragStartClientY = t.clientY;
+    } else {
+      isPanning = true;
+      panStartMouseX = t.clientX;
+      panStartMouseY = t.clientY;
+      panStartX = panX;
+      panStartY = panY;
+      hasDragged = false;
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  mainC.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const r = mainC.getBoundingClientRect();
+    const mx = t.clientX - r.left, my = t.clientY - r.top;
+
     if (isPanning) {
+      const dist = Math.hypot(t.clientX - panStartMouseX, t.clientY - panStartMouseY);
+      if (dist > 3) {
+        hasDragged = true;
+      }
+      panX = panStartX + (t.clientX - panStartMouseX);
+      panY = panStartY + (t.clientY - panStartMouseY);
+    } else if (draggedNode) {
+      const dist = Math.hypot(t.clientX - dragStartClientX, t.clientY - dragStartClientY);
+      if (dist > 5) {
+        hasDragged = true;
+      }
+      const wx = (mx - panX) / zoom, wy = (my - panY) / zoom;
+      draggedNode.x = wx;
+      draggedNode.y = wy;
+      draggedNode.vx = 0;
+      draggedNode.vy = 0;
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  mainC.addEventListener('touchend', e => {
+    if (draggedNode) {
+      draggedNode.isDragging = false;
+      if (!hasDragged) {
+        if (draggedNode === coreNode) {
+          toggleUploadPopup();
+        } else {
+          openNodeModal(draggedNode);
+        }
+      }
+      draggedNode = null;
+    } else if (isPanning) {
+      isPanning = false;
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  window.addEventListener('mousemove', e => {
+    if (isPanning && !draggedNode) {
       panX = panStartX + (e.clientX - panStartMouseX);
       panY = panStartY + (e.clientY - panStartMouseY);
     }
@@ -2713,9 +2814,12 @@ If the query cannot be answered using the retrieved context or conversation hist
         ignoreNextClick = true;
       }
     }
-    if (isPanning && e.button === 1) {
+    if (isPanning) {
       isPanning = false;
       mainC.style.cursor = 'crosshair';
+      if (hasDragged) {
+        ignoreNextClick = true;
+      }
     }
   });
 

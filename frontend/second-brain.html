@@ -1981,9 +1981,25 @@ If the query cannot be answered using the retrieved context or conversation hist
   let panX = 0, panY = 0, isPanning = false;
   let panStartMouseX = 0, panStartMouseY = 0, panStartX = 0, panStartY = 0;
 
+  let lastWidth = 0, lastHeight = 0;
   function resize() {
     dpr = window.devicePixelRatio || 1;
-    W = wrap.clientWidth; H = wrap.clientHeight;
+    const currentW = wrap.clientWidth;
+    const currentH = wrap.clientHeight;
+    
+    if (window.innerWidth <= 768) {
+      // If width is identical but height changed, it's a mobile keyboard/panel resize.
+      // We ignore it so the graph isn't squished or pushed upwards.
+      if (lastWidth === currentW && lastHeight > 0 && currentH !== lastHeight) {
+        return;
+      }
+    }
+    
+    W = currentW;
+    H = currentH;
+    lastWidth = currentW;
+    lastHeight = currentH;
+
     [bgC, mainC].forEach(c => {
       c.width = W * dpr; c.height = H * dpr;
       c.style.width = W + 'px'; c.style.height = H + 'px';

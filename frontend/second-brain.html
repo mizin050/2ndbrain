@@ -4234,10 +4234,10 @@ If the query cannot be answered using the retrieved context or conversation hist
         try {
           const canvas = document.getElementById('graph-main-canvas');
           if (canvas) {
-            // Optimize/Standardize canvas to 250x250 with solid black background for ultra-high-speed JPEG compression
+            // Optimize/Standardize canvas to 500x500 with solid black background for ultra-high-definition crispness
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 250;
-            tempCanvas.height = 250;
+            tempCanvas.width = 500;
+            tempCanvas.height = 500;
             const tempCtx = tempCanvas.getContext('2d');
             if (tempCtx) {
               // Paint solid black background
@@ -4247,19 +4247,19 @@ If the query cannot be answered using the retrieved context or conversation hist
               // Apply brightness(1.4) filter to make nodes and connectors pop
               tempCtx.filter = "brightness(1.4)";
               
-              // Calculate 30% crop bounds to zoom in the widget by exactly 30%
+              // Calculate 10% crop bounds to perfectly fit the whole graph with 10% zoom
               const sw = canvas.width;
               const sh = canvas.height;
-              const cropW = sw * 0.70;
-              const cropH = sh * 0.70;
+              const cropW = sw * 0.90;
+              const cropH = sh * 0.90;
               const sx = (sw - cropW) / 2;
               const sy = (sh - cropH) / 2;
 
-              // Draw the zoomed-in, 40% brighter central portion of the source canvas onto the 250x250 temp canvas
+              // Draw the zoomed-in, 40% brighter central portion of the source canvas onto the 500x500 temp canvas
               tempCtx.drawImage(canvas, sx, sy, cropW, cropH, 0, 0, tempCanvas.width, tempCanvas.height);
-              graphImageB64 = tempCanvas.toDataURL('image/jpeg', 0.7);
+              graphImageB64 = tempCanvas.toDataURL('image/jpeg', 0.95);
             } else {
-              graphImageB64 = canvas.toDataURL('image/jpeg', 0.7);
+              graphImageB64 = canvas.toDataURL('image/jpeg', 0.95);
             }
           }
         } catch (e) {

@@ -9,3 +9,15 @@ __pycache__/
 *.pyc
 .vercel
 .env*
+
+# Node modules & builds
+node_modules/
+dist/
+build/
+
+# Android native ignores
+.gradle/
+local.properties
+*.apk
+*.aar
+capture.png

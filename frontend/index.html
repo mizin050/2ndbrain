@@ -883,7 +883,7 @@
       <button id="mob-chat-close" style="display:none">✕ CLOSE CHAT</button>
       <div id="chat-input-area">
         <div class="input-container">
-          <textarea id="msg-input" rows="1" placeholder="Query the neural network..."></textarea>
+          <textarea id="msg-input" rows="1" placeholder="Query the neural network..." enterkeyhint="send"></textarea>
           <button id="send-btn" aria-label="Send">
             <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"/></svg>
           </button>
@@ -1533,7 +1533,10 @@ create policy "Users can read/write their own profiles."
     this.style.height = Math.min(this.scrollHeight, 100) + 'px';
   });
   msgInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+    if ((e.key === 'Enter' || e.keyCode === 13) && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
   });
   sendBtn.addEventListener('click', sendChatMessage);
 
@@ -1653,6 +1656,7 @@ You reside completely on the user's mobile device.
 
 USER PROFILE:
 - Current User: ${activeUsername}
+- Current Local Time: ${new Date().toString()}
 
 HUMAN CONVERSATIONAL TONE GUIDELINES:
 - Speak in a highly natural, warm, friendly, conversational, and genuinely human voice. Imagine talking directly to a close companion or a coworker.
@@ -1669,15 +1673,21 @@ CONVERSATION CONTEXT:
 - Always refer back to and leverage previous messages in the chat history to understand and answer follow-up questions or requests.
 
 REMINDERS TRIGGER SYSTEM:
-- If the user asks you to remind them of something at a specific time or after a duration (e.g., "remind me in 5 seconds to stand up" or "remind me to check the oven at 3:00 PM"):
-  You MUST append a special hidden tag at the very end of your response in the exact format:
-  [[REMINDER: text="Your reminder content" delay="duration_in_seconds_or_time_string"]]
+- IMPORTANT: Set reminders ONLY when the user explicitly requests you to remember or remind them of something, or when it's clearly to remember something important they mentioned. Do NOT generate reminders for general conversational statements.
+- If the user requests a reminder for a special recurring or one-time calendar date (such as birthdays, anniversaries, weddings, or major milestones):
+  You MUST generate MULTIPLE reminder tags to alert them in advance. Calculate the absolute dates based on the Current Local Time above and generate precisely these 4 tags:
+  1. One month before the event: [[REMINDER: text="[Event Name] in 1 month" delay="[Calculated absolute date 1 month before, formatted as YYYY-MM-DD 09:00]"]]
+  2. One week before the event: [[REMINDER: text="[Event Name] in 1 week" delay="[Calculated absolute date 1 week before, formatted as YYYY-MM-DD 09:00]"]]
+  3. One day before the event: [[REMINDER: text="[Event Name] tomorrow" delay="[Calculated absolute date 1 day before, formatted as YYYY-MM-DD 09:00]"]]
+  4. On the day of the event: [[REMINDER: text="[Event Name] today!" delay="[Calculated absolute date of event, formatted as YYYY-MM-DD 09:00]"]]
+  
+- For general single reminders (e.g. "remind me to check the oven in 10 minutes"), append a single tag at the end of your response:
+  [[REMINDER: text="Your reminder content" delay="duration_or_time_string"]]
   
   Examples:
-  - "remind me in 10 seconds to drink water" -> Append at the end: [[REMINDER: text="Drink water" delay="10"]]
-  - "remind me in 5 minutes to buy milk" -> Append at the end: [[REMINDER: text="Buy milk" delay="300"]]
-  - "remind me to check oven at 3:00 PM" -> Append at the end: [[REMINDER: text="Check oven" delay="15:00"]]
-  - "remind me to call dad at 6:30 PM" -> Append at the end: [[REMINDER: text="Call dad" delay="18:30"]]
+  - "remind me in 10 seconds to drink water" -> [[REMINDER: text="Drink water" delay="10"]]
+  - "remind me in 5 minutes to buy milk" -> [[REMINDER: text="Buy milk" delay="300"]]
+  - "remind me to check oven at 3:00 PM" -> [[REMINDER: text="Check oven" delay="15:00"]]
 
 MEMORY RETRIEVAL CONTEXT:
 Use the following local database context to answer their query accurately when relevant:
@@ -1755,22 +1765,23 @@ If the query cannot be answered using the retrieved context or conversation hist
         
         // Parse reminders if present in responseText (highly robust parsing tolerant of quote styles, order, and whitespace)
         let cleanedResponseText = responseText;
-        const reminderTagRegex = /\[\[REMINDER:\s*([\s\S]+?)\s*\]\]/i;
-        const tagMatch = responseText.match(reminderTagRegex);
-        if (tagMatch) {
-          const rawTag = tagMatch[0];
-          const paramsText = tagMatch[1];
+        const reminderTagRegex = /\[\[REMINDER:\s*([\s\S]+?)\s*\]\]/gi;
+        const matches = [...responseText.matchAll(reminderTagRegex)];
+        
+        for (const match of matches) {
+          const rawTag = match[0];
+          const paramsText = match[1];
           const textMatch = paramsText.match(/text=(?:"|')([^'"]+)(?:"|')/i);
           const delayMatch = paramsText.match(/delay=(?:"|')([^'"]+)(?:"|')/i);
           
           if (textMatch && delayMatch) {
             // Schedule using robust delay string
             scheduleReminderFromTag(rawTag);
-            // Strip out the tag from response text
-            cleanedResponseText = responseText.replace(reminderTagRegex, '').trim();
-            streamContainer.innerHTML = formatStreamingText(cleanedResponseText);
           }
         }
+        
+        cleanedResponseText = responseText.replace(reminderTagRegex, '').trim();
+        streamContainer.innerHTML = formatStreamingText(cleanedResponseText);
 
         // Add final streamed response to chat history
         chatHistory.push({ role: 'assistant', content: cleanedResponseText });
@@ -4175,6 +4186,16 @@ If the query cannot be answered using the retrieved context or conversation hist
     return targetDate.getTime();
   }
 
+  window.syncWidgetReminders = function() {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SecondBrainWidgetPlugin) {
+      const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
+      const activeReminders = reminders.filter(r => !r.fired).sort((a, b) => a.time - b.time);
+      window.Capacitor.Plugins.SecondBrainWidgetPlugin.updateWidget({
+        remindersJson: JSON.stringify(activeReminders)
+      }).catch(err => console.warn("Widget sync error:", err));
+    }
+  };
+
   window.scheduleReminderFromTag = function(tagText) {
     const textMatch = tagText.match(/text="([^"]+)"/);
     const delayMatch = tagText.match(/delay="([^"]+)"/);
@@ -4189,25 +4210,40 @@ If the query cannot be answered using the retrieved context or conversation hist
       const seconds = parseInt(delayVal, 10);
       targetTime += seconds * 1000;
     } else {
-      // Parse flexible duration formats like "1m", "5 min", "10 minutes", "30s", "1 hour", etc.
-      const durationMatch = delayVal.match(/^(\d+(?:\.\d+)?)\s*(s|sec|second|seconds|m|min|minute|minutes|h|hr|hour|hours)$/i);
+      // 1. Parse flexible duration formats with support for s, m, h, d, w, mo, y
+      const durationMatch = delayVal.match(/^(\d+(?:\.\d+)?)\s*(s|sec|second|seconds|m|min|minute|minutes|h|hr|hour|hours|d|day|days|w|wk|week|weeks|mo|mon|month|months|y|yr|year|years)$/i);
       if (durationMatch) {
         const value = parseFloat(durationMatch[1]);
         const unit = durationMatch[2].toLowerCase();
         if (unit.startsWith('s')) {
           targetTime += value * 1000;
-        } else if (unit.startsWith('m')) {
+        } else if (unit.startsWith('m') && !unit.startsWith('mo')) {
           targetTime += value * 60 * 1000;
         } else if (unit.startsWith('h')) {
           targetTime += value * 60 * 60 * 1000;
+        } else if (unit.startsWith('d')) {
+          targetTime += value * 24 * 60 * 60 * 1000;
+        } else if (unit.startsWith('w')) {
+          targetTime += value * 7 * 24 * 60 * 60 * 1000;
+        } else if (unit.startsWith('mo')) {
+          targetTime += value * 30 * 24 * 60 * 60 * 1000;
+        } else if (unit.startsWith('y')) {
+          targetTime += value * 365 * 24 * 60 * 60 * 1000;
         }
       } else {
-        // Fall back to wall-clock time format (e.g., "3:00 PM", "15:00")
-        const parsedTime = parseTimeStringToTimestamp(delayVal);
-        if (parsedTime) {
-          targetTime = parsedTime;
+        // 2. Try parsing as an absolute date first if it contains a slash, dash, year, or month names
+        const looksLikeAbsoluteDate = /[\/\-]|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(delayVal);
+        const parsedDate = Date.parse(delayVal);
+        if (looksLikeAbsoluteDate && !isNaN(parsedDate)) {
+          targetTime = parsedDate;
         } else {
-          targetTime += 60000; // default 1m fallback
+          // 3. Fall back to wall-clock time format (e.g., "3:00 PM", "15:00")
+          const parsedTime = parseTimeStringToTimestamp(delayVal);
+          if (parsedTime) {
+            targetTime = parsedTime;
+          } else {
+            targetTime += 60000; // default 1m fallback
+          }
         }
       }
     }
@@ -4224,24 +4260,53 @@ If the query cannot be answered using the retrieved context or conversation hist
     reminders.push(reminder);
     localStorage.setItem('sb_reminders', JSON.stringify(reminders));
 
-    // Dispatch reminder to Service Worker for robust operating system background execution (even when PWA is minimized or closed)
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(registration => {
-        if (registration.active) {
-          registration.active.postMessage({
-            type: 'SCHEDULE_NOTIFICATION',
-            title: '🧠 SECOND BRAIN',
-            body: content.toUpperCase(),
-            time: targetTime
-          });
+    // Dispatch reminder to Capacitor Native LocalNotifications or Service Worker fallback
+    const scheduleBackgroundNotification = async (title, body, targetTime) => {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+        try {
+          const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+          const permission = await LocalNotifications.requestPermissions();
+          if (permission.display === 'granted') {
+            const delayMs = targetTime - Date.now();
+            await LocalNotifications.schedule({
+              notifications: [{
+                title: title,
+                body: body,
+                id: Math.floor(Math.random() * 1000000),
+                schedule: { at: new Date(Date.now() + Math.max(0, delayMs)) }
+              }]
+            });
+            console.log("Capacitor Native Local Notification scheduled.");
+            return;
+          }
+        } catch (e) {
+          console.warn("Capacitor LocalNotification failed, falling back to Service Worker:", e);
         }
-      }).catch(err => console.warn("SW postMessage failed:", err));
-    }
+      }
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+          if (registration.active) {
+            registration.active.postMessage({
+              type: 'SCHEDULE_NOTIFICATION',
+              title: title,
+              body: body,
+              time: targetTime
+            });
+          }
+        }).catch(err => console.warn("SW postMessage failed:", err));
+      }
+    };
+
+    scheduleBackgroundNotification('🧠 SECOND BRAIN', content.toUpperCase(), targetTime);
 
     showToast(`✓ REMINDER SCHEDULED: "${content.toUpperCase()}"`);
     
     if (typeof fetchCalendar === 'function') {
       fetchCalendar();
+    }
+    if (typeof syncWidgetReminders === 'function') {
+      syncWidgetReminders();
     }
   };
 
@@ -4352,12 +4417,18 @@ If the query cannot be answered using the retrieved context or conversation hist
 
       if (updated) {
         localStorage.setItem('sb_reminders', JSON.stringify(reminders));
+        if (typeof syncWidgetReminders === 'function') {
+          syncWidgetReminders();
+        }
       }
     }, 1000);
   }
 
   // Launch Reminders Loop
   startRemindersLoop();
+  if (typeof syncWidgetReminders === 'function') {
+    syncWidgetReminders();
+  }
 
 
 

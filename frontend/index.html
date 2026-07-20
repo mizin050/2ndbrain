@@ -3729,6 +3729,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       chatMessages.classList.remove('mob-open');
       mobClose.style.display = 'none';
       chatInputArea.classList.remove('mob-active');
+      if (msgInput) msgInput.blur();
     }
 
     // Tapping input or send opens the chat
@@ -3739,9 +3740,19 @@ If the query cannot be answered using the retrieved context or conversation hist
     mobClose.addEventListener('click', closeMobChat);
     mobClose.addEventListener('touchend', e => { e.preventDefault(); closeMobChat(); });
 
-    // Tapping the graph canvas closes chat (passes touch through naturally since pointer-events:none on panel)
-    graphCanvas.addEventListener('click',      () => { if (MOBILE() && chatOpen) closeMobChat(); });
-    graphCanvas.addEventListener('touchstart', () => { if (MOBILE() && chatOpen) closeMobChat(); }, { passive: true });
+    // Tapping the graph canvas closes chat and blurs focus to hide keyboard
+    graphCanvas.addEventListener('click',      () => { 
+      if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
+      if (MOBILE() && chatOpen) closeMobChat(); 
+    });
+    graphCanvas.addEventListener('touchstart', () => { 
+      if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
+      if (MOBILE() && chatOpen) closeMobChat(); 
+    }, { passive: true });
 
     // When a new message is appended, auto-open and scroll
     const observer = new MutationObserver(() => {

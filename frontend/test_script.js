@@ -3183,7 +3183,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       }
     };
 
-    scheduleBackgroundNotification('🧠 SECOND BRAIN', content.toUpperCase(), targetTime);
+    scheduleBackgroundNotification('// SECOND BRAIN', content.toUpperCase(), targetTime);
 
     showToast(`✓ REMINDER SCHEDULED: "${content.toUpperCase()}"`);
     
@@ -3294,9 +3294,7 @@ If the query cannot be answered using the retrieved context or conversation hist
           rem.fired = true;
           updated = true;
 
-          // Trigger continuous alarm ringing and PWA notification
-          triggerAlarmRinging(rem.text.toUpperCase());
-          triggerBrowserNotification("🧠 SECOND BRAIN", rem.text.toUpperCase());
+          // Silently mark as fired to let background native notification execute instead
         }
       });
 

@@ -24,12 +24,19 @@ public class SecondBrainWidgetPlugin extends Plugin {
         editor.putString("reminders", remindersJson);
         editor.apply();
 
-        // Trigger App Widget refresh
+        // Trigger App Widget refresh for queue
         Intent intent = new Intent(getContext(), SecondBrainWidget.class);
         intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
         int[] ids = AppWidgetManager.getInstance(getContext()).getAppWidgetIds(new ComponentName(getContext(), SecondBrainWidget.class));
         intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
         getContext().sendBroadcast(intent);
+
+        // Trigger App Widget refresh for constellation map
+        Intent graphIntent = new Intent(getContext(), SecondBrainGraphWidget.class);
+        graphIntent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+        int[] graphIds = AppWidgetManager.getInstance(getContext()).getAppWidgetIds(new ComponentName(getContext(), SecondBrainGraphWidget.class));
+        graphIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, graphIds);
+        getContext().sendBroadcast(graphIntent);
 
         JSObject ret = new JSObject();
         ret.put("success", true);

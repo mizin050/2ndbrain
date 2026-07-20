@@ -1101,9 +1101,31 @@ create policy "Users can read/write their own profiles."
     </div>
   </div>
 
+  <!-- ═══ CODENAME MODAL ═══ -->
+  <div id="codename-modal" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px 10px;">
+    <div style="position:relative;width:400px;max-width:94vw;background:rgba(6,6,6,.98);border:1px solid rgba(255,90,0,.4);box-shadow:0 0 40px rgba(255,90,0,.15);display:flex;flex-direction:column;border-radius:3px;">
+      
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid rgba(255,90,0,.15);background:rgba(255,90,0,.03);">
+        <span style="font-family:var(--font-display);font-size:11px;letter-spacing:2px;color:var(--orange);font-weight:bold;">⚡ UPDATE CODENAME</span>
+      </div>
+
+      <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;">ENTER NEW CODENAME (LOCAL & CLOUD)://</label>
+          <input id="codename-input-field" type="text" placeholder="e.g. neo" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.25);color:var(--text);padding:8px 12px;font-family:var(--font-mono);font-size:11px;border-radius:2px;outline:none;" />
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button id="codename-cancel-btn" style="background:none;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);font-family:var(--font-mono);font-size:9px;letter-spacing:2px;padding:8px 16px;cursor:pointer;border-radius:2px;transition:all .2s;text-transform:uppercase;">CANCEL</button>
+          <button id="codename-confirm-btn" style="background:var(--orange);border:none;color:#000;font-family:var(--font-mono);font-size:9px;font-weight:bold;letter-spacing:2px;padding:8px 16px;cursor:pointer;border-radius:2px;transition:all .2s;text-transform:uppercase;box-shadow:0 0 10px rgba(255,90,0,.15);">CONFIRM</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <style>
     /* Node modal open state */
-    #node-modal.open, #log-modal.open, #supabase-auth-modal.open { display:flex !important; }
+    #node-modal.open, #log-modal.open, #supabase-auth-modal.open, #codename-modal.open { display:flex !important; }
     /* node-meta rows */
     .node-meta-row { display:flex; gap:8px; align-items:center; }
     .node-meta-label { font-family:var(--font-mono); font-size:8px; letter-spacing:2px; color:rgba(255,90,0,.6); text-transform:uppercase; }
@@ -1142,6 +1164,16 @@ create policy "Users can read/write their own profiles."
           lastError = new Error(`Rate limit exceeded (HTTP 429).`);
           if (typeof showToast === 'function') {
             showToast(`API Key ${i+1} limited (429). Rotating key...`);
+          }
+          continue;
+        }
+
+        // Handle invalid API Key failover
+        if (response.status === 401 || response.status === 403) {
+          console.warn(`Groq API key ${i+1}/${keys.length} is invalid/unauthorized (HTTP ${response.status}). Attempting automatic failover to the next key...`);
+          lastError = new Error(`API Key #${i+1} is invalid (unauthorized).`);
+          if (typeof showToast === 'function') {
+            showToast(`API Key ${i+1} is invalid. Rotating key...`, true);
           }
           continue;
         }
@@ -3866,6 +3898,11 @@ If the query cannot be answered using the retrieved context or conversation hist
   const configSection     = document.getElementById('supabase-config-section');
   const toggleConfigBtn   = document.getElementById('toggle-config-btn');
 
+  const codenameModal     = document.getElementById('codename-modal');
+  const codenameInput     = document.getElementById('codename-input-field');
+  const codenameCancel    = document.getElementById('codename-cancel-btn');
+  const codenameConfirm   = document.getElementById('codename-confirm-btn');
+
   function populateGroqKeysFromStorage() {
     const rawKeys = localStorage.getItem('sb_groq_key') || '';
     const keys = rawKeys.split(/[\s,;]+/).map(k => k.trim()).filter(Boolean);
@@ -4191,16 +4228,29 @@ If the query cannot be answered using the retrieved context or conversation hist
   syncBtn.addEventListener('click', () => { supabaseDropdown.style.display = 'none'; });
   pullBtn.addEventListener('click', () => { supabaseDropdown.style.display = 'none'; });
 
-  // Edit Username via Dropdown button click
-  editUsernameBtn.addEventListener('click', async (e) => {
+  // Edit Username via Dropdown button click using Custom Themed Modal
+  editUsernameBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     supabaseDropdown.style.display = 'none';
     
     const currentUsername = localStorage.getItem('sb_username') || '';
-    const newUsername = prompt("ENTER NEW CODENAME:", currentUsername);
-    if (!newUsername) return;
-    const cleanUsername = newUsername.trim();
-    if (!cleanUsername) return;
+    codenameInput.value = currentUsername;
+    codenameModal.classList.add('open');
+    setTimeout(() => codenameInput.focus(), 100);
+  });
+
+  // Cancel Codename change
+  codenameCancel.addEventListener('click', () => codenameModal.classList.remove('open'));
+  codenameModal.addEventListener('click', e => { if (e.target === codenameModal) codenameModal.classList.remove('open'); });
+
+  // Execute Codename update
+  async function handleCodenameUpdate() {
+    const cleanUsername = codenameInput.value.trim();
+    if (!cleanUsername) {
+      showToast("Please enter a valid codename.", true);
+      return;
+    }
+    codenameModal.classList.remove('open');
 
     if (localStorage.getItem('sb_local_only') === 'true') {
       localStorage.setItem('sb_username', cleanUsername);
@@ -4224,6 +4274,13 @@ If the query cannot be answered using the retrieved context or conversation hist
       showToast("✓ USERNAME UPDATED SECURELY!");
     } catch (e) {
       showToast("UPDATE ERROR: " + e.message, true);
+    }
+  }
+
+  codenameConfirm.addEventListener('click', handleCodenameUpdate);
+  codenameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      handleCodenameUpdate();
     }
   });
 

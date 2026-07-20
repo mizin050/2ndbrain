@@ -1024,7 +1024,8 @@
 
         <!-- Supabase Configurations -->
         <div id="supabase-config-section" style="display:flex;flex-direction:column;gap:10px;border:1px solid rgba(255,90,0,.15);padding:14px;border-radius:2px;background:rgba(255,90,0,.01);">
-          <div style="font-family:var(--font-mono);font-size:9px;color:var(--orange);letter-spacing:1px;font-weight:bold;">// STEP 1: DEPLOY FREE BACKEND CONFIG (ONCE)</div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--orange);letter-spacing:1px;font-weight:bold;">// OPTIONAL CLOUD STORAGE BACKEND (SUPABASE)</div>
+          <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;margin-top:-6px;line-height:1.3;">(Leave both fields blank to activate 100% Offline Local Mode on this device)</div>
           
           <div style="display:flex;flex-direction:column;gap:4px;">
             <label style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;">SUPABASE_URL://</label>
@@ -3821,6 +3822,29 @@ If the query cannot be answered using the retrieved context or conversation hist
   const configSection     = document.getElementById('supabase-config-section');
   const toggleConfigBtn   = document.getElementById('toggle-config-btn');
 
+  function updateSubmitButtonText() {
+    const hasSbConfig = sbUrlInput.value.trim() !== "" || keyInput.value.trim() !== "";
+    if (!hasSbConfig) {
+      submitBtn.textContent = 'ACTIVATE OFFLINE LOCAL MODE';
+      sbUsernameContainer.style.display = 'flex';
+      sbUsernameInput.placeholder = 'e.g. neo';
+      sbGroqLabel.textContent = 'GROQ_API_KEY (REQUIRED)://';
+      sbGroqInput.placeholder = 'gsk_xxxxxxxxxxxxxxxxxxxxxxxx';
+    } else {
+      if (isSignUpMode) {
+        submitBtn.textContent = 'PROVISION NEW ACCOUNT';
+        sbUsernameContainer.style.display = 'flex';
+        sbGroqLabel.textContent = 'GROQ_API_KEY (REQUIRED)://';
+        sbGroqInput.placeholder = 'gsk_xxxxxxxxxxxxxxxxxxxxxxxx';
+      } else {
+        submitBtn.textContent = 'EXECUTE SIGN IN';
+        sbUsernameContainer.style.display = 'none';
+        sbGroqLabel.textContent = 'GROQ_API_KEY (OPTIONAL ONCE SAVED)://';
+        sbGroqInput.placeholder = 'Leave blank to use saved key';
+      }
+    }
+  }
+
   // Open & Close Modal
   authBtn.addEventListener('click', () => {
     const savedUrl = localStorage.getItem('sb_url');
@@ -3834,6 +3858,7 @@ If the query cannot be answered using the retrieved context or conversation hist
       configSection.style.display = 'flex';
     }
 
+    updateSubmitButtonText();
     authModal.classList.add('open');
   });
   authClose.addEventListener('click', () => authModal.classList.remove('open'));
@@ -3848,6 +3873,10 @@ If the query cannot be answered using the retrieved context or conversation hist
     }
   });
 
+  // Listen for changes to toggle Offline Local Mode text on the fly!
+  sbUrlInput.addEventListener('input', updateSubmitButtonText);
+  keyInput.addEventListener('input', updateSubmitButtonText);
+
   // Toggle Tab
   tabLogin.addEventListener('click', () => {
     isSignUpMode = false;
@@ -3855,10 +3884,7 @@ If the query cannot be answered using the retrieved context or conversation hist
     tabLogin.style.color = 'var(--text)';
     tabSignup.style.background = 'none';
     tabSignup.style.color = 'rgba(255,255,255,.4)';
-    submitBtn.textContent = 'EXECUTE SIGN IN';
-    sbGroqLabel.textContent = 'GROQ_API_KEY (OPTIONAL ONCE SAVED)://';
-    sbGroqInput.placeholder = 'Leave blank to use saved key';
-    sbUsernameContainer.style.display = 'none';
+    updateSubmitButtonText();
   });
   tabSignup.addEventListener('click', () => {
     isSignUpMode = true;
@@ -3866,16 +3892,13 @@ If the query cannot be answered using the retrieved context or conversation hist
     tabSignup.style.color = 'var(--text)';
     tabLogin.style.background = 'none';
     tabLogin.style.color = 'rgba(255,255,255,.4)';
-    submitBtn.textContent = 'PROVISION NEW ACCOUNT';
-    sbGroqLabel.textContent = 'GROQ_API_KEY (REQUIRED)://';
-    sbGroqInput.placeholder = 'gsk_xxxxxxxxxxxxxxxxxxxxxxxx';
-    sbUsernameContainer.style.display = 'flex';
+    updateSubmitButtonText();
   });
 
-  // ─── DEFAULT SUPABASE BACKEND CLOUD SETTINGS (CROSS-DEVICE FALLBACKS) ───
-  // Paste your Supabase Anon Key here so you never have to enter your database credentials again on any new device!
-  const DEFAULT_SUPABASE_URL = "https://aizfypykmaurxillofge.supabase.co"; 
-  const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpemZ5cHlrbWF1cnhpbGxvZmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMzQ5MTYsImV4cCI6MjA5OTcxMDkxNn0.rpLE3Zz-4a4voX-1r-AEqgOiLwr7BuaT9uF7RxnP3kA"; // Paste your anon key here for one-click cross-device login
+  // ─── DEFAULT SUPABASE BACKEND CLOUD SETTINGS ───
+  // Empty by default for privacy. Paste your Supabase credentials here or insert them via UI!
+  const DEFAULT_SUPABASE_URL = ""; 
+  const DEFAULT_SUPABASE_ANON_KEY = ""; 
 
   // Init Supabase Client
   function getSupabaseClient() {
@@ -3905,6 +3928,43 @@ If the query cannot be answered using the retrieved context or conversation hist
 
   // Execute Auth
   submitBtn.addEventListener('click', async () => {
+    const urlVal = sbUrlInput.value.trim();
+    const keyVal = keyInput.value.trim();
+    const isLocalMode = !urlVal && !keyVal;
+
+    const usernameVal = sbUsernameInput.value.trim();
+    const groqKeyVal = sbGroqInput.value.trim();
+
+    if (isLocalMode) {
+      if (!usernameVal) {
+        showToast("Please enter a username/codename for your local profile.", true);
+        return;
+      }
+      if (!groqKeyVal && !localStorage.getItem('sb_groq_key')) {
+        showToast("Please enter your Groq API Key.", true);
+        return;
+      }
+
+      // Save Local profile settings
+      localStorage.setItem('sb_local_only', 'true');
+      localStorage.setItem('sb_username', usernameVal);
+      if (groqKeyVal) {
+        localStorage.setItem('sb_groq_key', groqKeyVal);
+      }
+
+      // Clear cloud sessions if present
+      localStorage.removeItem('sb_session_user');
+      localStorage.removeItem('sb_url');
+      localStorage.removeItem('sb_anon_key');
+      sbClient = null;
+
+      showToast("✓ LOCAL NEURAL WORKSPACE ACTIVATED");
+      authModal.classList.remove('open');
+      updateAuthUI({ local_only: true, username: usernameVal });
+      return;
+    }
+
+    // Cloud mode (Supabase URL & Key provided)
     const client = getSupabaseClient();
     if (!client) {
       showToast("Please provide both Supabase URL and Anon Key first.", true);
@@ -3920,13 +3980,11 @@ If the query cannot be answered using the retrieved context or conversation hist
       return;
     }
 
-    const usernameVal = sbUsernameInput.value.trim();
     if (isSignUpMode && !usernameVal) {
       showToast("Please enter a username for your account.", true);
       return;
     }
 
-    const groqKeyVal = sbGroqInput.value.trim();
     if (isSignUpMode && !groqKeyVal) {
       showToast("Please enter your Groq API Key to set up your account.", true);
       return;
@@ -3950,6 +4008,7 @@ If the query cannot be answered using the retrieved context or conversation hist
         if (error) throw error;
         
         // Persist Groq key and username to localStorage
+        localStorage.setItem('sb_local_only', 'false');
         localStorage.setItem('sb_groq_key', groqKeyVal);
         localStorage.setItem('sb_username', usernameVal);
         
@@ -3960,6 +4019,7 @@ If the query cannot be answered using the retrieved context or conversation hist
         const { data, error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
+        localStorage.setItem('sb_local_only', 'false');
         // If a new key was entered on login, save it
         if (groqKeyVal) {
           localStorage.setItem('sb_groq_key', groqKeyVal);
@@ -3988,29 +4048,57 @@ If the query cannot be answered using the retrieved context or conversation hist
   logoutBtn.addEventListener('click', async () => {
     const client = getSupabaseClient();
     if (client) {
-      await client.auth.signOut();
+      try {
+        await client.auth.signOut();
+      } catch (e) {}
     }
     localStorage.removeItem('sb_session_user');
+    localStorage.removeItem('sb_local_only');
+    localStorage.removeItem('sb_username');
+    localStorage.removeItem('sb_groq_key');
     updateAuthUI(null);
     showToast("LOGGED OUT SECURELY");
   });
 
   // UI Updates
   function updateAuthUI(user) {
-    if (user) {
-      localStorage.setItem('sb_session_user', JSON.stringify(user));
+    const isLocalOnly = localStorage.getItem('sb_local_only') === 'true' || (user && user.local_only);
+
+    if (user || isLocalOnly) {
+      if (user && !user.local_only) {
+        localStorage.setItem('sb_session_user', JSON.stringify(user));
+      }
       authBtn.style.display = 'none';
       supabaseProfile.style.display = 'flex';
       
-      const displayName = user.user_metadata?.username || localStorage.getItem('sb_username') || user.email.split('@')[0];
+      const displayName = isLocalOnly
+        ? (localStorage.getItem('sb_username') || "LOCAL")
+        : (user.user_metadata?.username || localStorage.getItem('sb_username') || user.email.split('@')[0]);
+
       userEmailSpan.textContent = displayName.toUpperCase();
       userTrigger.style.cursor = 'pointer';
       userTrigger.title = 'Click to open Control Panel';
       
-      // Update avatar badge initial
       const profileBadge = document.getElementById('supabase-avatar-badge');
       if (profileBadge) {
-        profileBadge.textContent = displayName.charAt(0).toUpperCase();
+        if (isLocalOnly) {
+          profileBadge.textContent = 'L';
+          profileBadge.style.background = 'var(--text-muted)';
+          profileBadge.style.boxShadow = 'none';
+        } else {
+          profileBadge.textContent = displayName.charAt(0).toUpperCase();
+          profileBadge.style.background = 'var(--orange)';
+          profileBadge.style.boxShadow = '0 0 4px var(--orange)';
+        }
+      }
+
+      // Hide sync/pull in local-only mode
+      if (isLocalOnly) {
+        syncBtn.style.display = 'none';
+        pullBtn.style.display = 'none';
+      } else {
+        syncBtn.style.display = 'inline-block';
+        pullBtn.style.display = 'inline-block';
       }
     } else {
       authBtn.style.display = 'block';
@@ -4045,10 +4133,18 @@ If the query cannot be answered using the retrieved context or conversation hist
     e.stopPropagation();
     supabaseDropdown.style.display = 'none';
     
-    const newUsername = prompt("ENTER NEW USERNAME / CODENAME:");
+    const currentUsername = localStorage.getItem('sb_username') || '';
+    const newUsername = prompt("ENTER NEW CODENAME:", currentUsername);
     if (!newUsername) return;
     const cleanUsername = newUsername.trim();
     if (!cleanUsername) return;
+
+    if (localStorage.getItem('sb_local_only') === 'true') {
+      localStorage.setItem('sb_username', cleanUsername);
+      updateAuthUI({ local_only: true, username: cleanUsername });
+      showToast("✓ CODENAME UPDATED SECURELY!");
+      return;
+    }
 
     const client = getSupabaseClient();
     if (!client) return;
@@ -4203,6 +4299,7 @@ If the query cannot be answered using the retrieved context or conversation hist
 
   // Auto-Login Session Recovery
   const sessionUserStr = localStorage.getItem('sb_session_user');
+  const isLocalOnly = localStorage.getItem('sb_local_only') === 'true';
   if (sessionUserStr) {
     try {
       const user = JSON.parse(sessionUserStr);
@@ -4214,6 +4311,8 @@ If the query cannot be answered using the retrieved context or conversation hist
         }
       }, 800);
     } catch (e) {}
+  } else if (isLocalOnly) {
+    updateAuthUI({ local_only: true, username: localStorage.getItem('sb_username') });
   }
 
   /* ═══ PWA SERVICE WORKER ═══ */

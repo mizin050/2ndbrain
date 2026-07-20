@@ -4745,18 +4745,30 @@ If the query cannot be answered using the retrieved context, active reminders li
           const permission = await LocalNotifications.requestPermissions();
           if (permission.display === 'granted') {
             const delayMs = targetTime - Date.now();
+            
+            // Register explicit high-importance native notification channel (required for background/killed state on modern Android)
+            await LocalNotifications.createChannel({
+              id: 'second_brain_alerts',
+              name: 'Second Brain Alerts',
+              description: 'Crucial cybernetic reminders and alert cues',
+              importance: 5, // High Importance
+              visibility: 1, // Public Visibility
+              vibration: true
+            });
+
             await LocalNotifications.schedule({
               notifications: [{
                 title: title,
                 body: body,
                 id: Math.floor(Math.random() * 1000000),
+                channelId: 'second_brain_alerts',
                 schedule: { 
                   at: new Date(Date.now() + Math.max(0, delayMs)),
                   allowWhileIdle: true
                 }
               }]
             });
-            console.log("Capacitor Native Local Notification scheduled.");
+            console.log("Capacitor Native Local Notification scheduled on 'second_brain_alerts'.");
             return;
           }
         } catch (e) {

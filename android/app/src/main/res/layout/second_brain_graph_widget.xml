@@ -1,45 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<relative-layout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_background"
-    android:padding="8dp">
+    android:background="@android:color/transparent">
 
-    <!-- Header Section -->
-    <linear-layout
-        android:id="@+id/header_layout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <text-view
-            android:id="@+id/widget_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="🧠 NEURAL CONSTELLATION"
-            android:textColor="#FF5E00"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-black" />
-
-        <text-view
-            android:id="@+id/widget_subtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="// LIVE COGNITIVE MAP"
-            android:textColor="#888888"
-            android:textSize="8sp"
-            android:fontFamily="monospace" />
-    </linear-layout>
-
-    <!-- Moving Graph Canvas Container -->
-    <image-view
+    <ImageView
         android:id="@+id/graph_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/header_layout"
-        android:layout_marginTop="6dp"
         android:scaleType="fitCenter"
-        android:contentDescription="Cognitive Graph Visualization" />
+        android:background="@android:color/transparent"
+        android:contentDescription="Borderless Neural Graph" />
 
-</relative-layout>
+</RelativeLayout>

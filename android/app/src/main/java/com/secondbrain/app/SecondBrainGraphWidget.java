@@ -1,5 +1,6 @@
 package com.secondbrain.app;
 
+import android.app.PendingIntent;
 import android.appwidget.AppWidgetProvider;
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
@@ -12,7 +13,6 @@ import android.graphics.Paint;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.RemoteViews;
-import java.util.ArrayList;
 
 public class SecondBrainGraphWidget extends AppWidgetProvider {
 
@@ -55,7 +55,6 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
                     for (int appWidgetId : appWidgetIds) {
                         updateGraphWidget(appContext, appWidgetManager, appWidgetId);
                     }
-                    // Update every 1.5 seconds for fluid but battery-friendly drift!
                     animationHandler.postDelayed(this, 1500);
                 }
             };
@@ -79,33 +78,31 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
         
         long time = System.currentTimeMillis();
 
-        // 1. Draw subtle sci-fi grid dots
+        // 1. Draw subtle sci-fi grid dots (with high transparency)
         Paint gridPaint = new Paint();
-        gridPaint.setColor(Color.parseColor("#222222"));
+        gridPaint.setColor(Color.parseColor("#15FF5E00")); // highly translucent orange dots
         gridPaint.setStyle(Paint.Style.FILL);
-        for (int i = 40; i < CANVAS_SIZE; i += 40) {
-            for (int j = 40; j < CANVAS_SIZE; j += 40) {
-                canvas.drawCircle(i, j, 2f, gridPaint);
+        for (int i = 40; i < CANVAS_SIZE; i += 50) {
+            for (int j = 40; j < CANVAS_SIZE; j += 50) {
+                canvas.drawCircle(i, j, 1.5f, gridPaint);
             }
         }
 
         // 2. Define node positions dynamically with sine/cosine orbital drifts
-        String[] labels = {"KASU", "COLLEGE", "NEURAL QUEUE", "ALARM", "VOICE", "MEMORY", "WORK", "IDEAS"};
+        String[] labels = {"KASU", "COLLEGE", "QUEUE", "ALARM", "VOICE", "MEMORY", "WORK", "IDEAS"};
         float[][] nodes = new float[labels.length][2];
         
         float centerX = CANVAS_SIZE / 2f;
         float centerY = CANVAS_SIZE / 2f;
-        float radius = 100f;
+        float radius = 110f;
 
         for (int i = 0; i < labels.length; i++) {
-            // Distribute base coordinates evenly in a circle
             double angle = (2 * Math.PI * i) / labels.length;
             float baseX = centerX + (float) (Math.cos(angle) * radius);
             float baseY = centerY + (float) (Math.sin(angle) * radius);
 
-            // Add smooth, overlapping sine-wave drifts based on system time
-            float driftX = (float) Math.sin((time * 0.0008) + (i * 1.5)) * 25f;
-            float driftY = (float) Math.cos((time * 0.0006) + (i * 2.1)) * 25f;
+            float driftX = (float) Math.sin((time * 0.0008) + (i * 1.5)) * 30f;
+            float driftY = (float) Math.cos((time * 0.0006) + (i * 2.1)) * 30f;
 
             nodes[i][0] = baseX + driftX;
             nodes[i][1] = baseY + driftY;
@@ -113,8 +110,8 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
 
         // 3. Draw connecting lines between close neighbors
         Paint linePaint = new Paint();
-        linePaint.setColor(Color.parseColor("#33FF5E00")); // semi-translucent orange
-        linePaint.setStrokeWidth(1.5f);
+        linePaint.setColor(Color.parseColor("#44FF5E00"));
+        linePaint.setStrokeWidth(2.0f);
         linePaint.setAntiAlias(true);
 
         for (int i = 0; i < nodes.length; i++) {
@@ -123,40 +120,43 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
                 float dy = nodes[i][1] - nodes[j][1];
                 float dist = (float) Math.sqrt(dx * dx + dy * dy);
 
-                // If close enough, draw a glowing constellation bridge
-                if (dist < 150f) {
-                    float alphaRatio = 1.0f - (dist / 150f);
-                    linePaint.setAlpha((int) (alphaRatio * 80));
+                if (dist < 160f) {
+                    float alphaRatio = 1.0f - (dist / 160f);
+                    linePaint.setAlpha((int) (alphaRatio * 110));
                     canvas.drawLine(nodes[i][0], nodes[i][1], nodes[j][0], nodes[j][1], linePaint);
                 }
             }
         }
 
-        // 4. Draw glowing nodes & text labels
+        // 4. Draw glowing nodes (without text labels for a super-minimalist 1x1 raw graph design!)
         Paint nodePaint = new Paint();
         nodePaint.setAntiAlias(true);
         nodePaint.setStyle(Paint.Style.FILL);
 
-        Paint textPaint = new Paint();
-        textPaint.setColor(Color.parseColor("#CCCCCC"));
-        textPaint.setTextSize(10f);
-        textPaint.setAntiAlias(true);
-        textPaint.setStyle(Paint.Style.FILL);
-        textPaint.setTextAlign(Paint.Align.CENTER);
-
         for (int i = 0; i < nodes.length; i++) {
-            // Draw dual concentric glowing layers
-            nodePaint.setColor(Color.parseColor("#22FF5E00")); // glow
-            canvas.drawCircle(nodes[i][0], nodes[i][1], 8f, nodePaint);
+            nodePaint.setColor(Color.parseColor("#33FF5E00")); // outer glow
+            canvas.drawCircle(nodes[i][0], nodes[i][1], 12f, nodePaint);
 
             nodePaint.setColor(Color.parseColor("#FF5E00")); // core
-            canvas.drawCircle(nodes[i][0], nodes[i][1], 3.5f, nodePaint);
-
-            // Text Label with custom backdrop offset
-            canvas.drawText(labels[i], nodes[i][0], nodes[i][1] - 12f, textPaint);
+            canvas.drawCircle(nodes[i][0], nodes[i][1], 5f, nodePaint);
         }
 
         views.setImageViewBitmap(R.id.graph_image, bitmap);
+
+        // 5. Create PendingIntent to launch MainActivity and trigger the Quick Chat modal
+        Intent clickIntent = new Intent(context, MainActivity.class);
+        clickIntent.setAction("com.secondbrain.app.QUICK_CHAT");
+        clickIntent.putExtra("open_quick_chat", true);
+        clickIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            clickIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
+        );
+        views.setOnClickPendingIntent(R.id.graph_image, pendingIntent);
+
         appWidgetManager.updateAppWidget(appWidgetId, views);
     }
 }

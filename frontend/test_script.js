@@ -3313,6 +3313,15 @@ If the query cannot be answered using the retrieved context or conversation hist
     syncWidgetReminders();
   }
 
+  // Handle widget-triggered instant micro-chat popup
+  if (window.pendingQuickChat) {
+    setTimeout(() => {
+      if (typeof window.triggerQuickChatPopup === 'function') {
+        window.triggerQuickChatPopup();
+      }
+    }, 500);
+  }
+
 
 
   /* ══════════════════════════════════════════════════════════════════

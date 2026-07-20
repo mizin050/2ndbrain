@@ -4428,6 +4428,15 @@ If the query cannot be answered using the retrieved context or conversation hist
     syncWidgetReminders();
   }
 
+  // Handle widget-triggered instant micro-chat popup
+  if (window.pendingQuickChat) {
+    setTimeout(() => {
+      if (typeof window.triggerQuickChatPopup === 'function') {
+        window.triggerQuickChatPopup();
+      }
+    }, 500);
+  }
+
 
 
   /* ══════════════════════════════════════════════════════════════════
@@ -4574,6 +4583,74 @@ If the query cannot be answered using the retrieved context or conversation hist
     </div>
   </div>
 
+  <!-- Quick Chat Popup Modal -->
+  <div id="quick-chat-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; background: rgba(5, 5, 5, 0.7); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;">
+    <div style="background: rgba(15, 15, 20, 0.95); border: 2px solid #FF5E00; border-radius: 16px; width: 90%; max-width: 380px; padding: 20px; box-shadow: 0 0 30px rgba(255, 94, 0, 0.4); box-sizing: border-box;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <span style="color: #FF5E00; font-family: monospace; font-size: 11px; font-weight: bold; letter-spacing: 1px;">// QUICK COGNITIVE TRANSMIT</span>
+        <button onclick="closeQuickChatPopup()" style="background: none; border: none; color: #888888; font-size: 24px; cursor: pointer; line-height: 1; padding: 0;">&times;</button>
+      </div>
+      <textarea id="quick-chat-input" placeholder="Transmit thought to Second Brain..." style="width: 100%; height: 120px; background: rgba(5, 5, 5, 0.6); border: 1px solid #333333; border-radius: 8px; color: #FFFFFF; padding: 10px; font-family: monospace; font-size: 13px; resize: none; outline: none; margin-bottom: 15px; box-sizing: border-box;"></textarea>
+      <button onclick="submitQuickChat()" style="width: 100%; background: #FF5E00; border: none; border-radius: 8px; color: #FFFFFF; font-family: monospace; font-size: 13px; font-weight: bold; padding: 12px; cursor: pointer; transition: background 0.2s;">⚡ TRANSMIT BEAM</button>
+    </div>
+  </div>
+
+  <script>
+    window.triggerQuickChatPopup = function() {
+      const modal = document.getElementById('quick-chat-modal');
+      const input = document.getElementById('quick-chat-input');
+      if (modal && input) {
+        modal.style.display = 'flex';
+        modal.offsetHeight; // Force reflow
+        modal.style.opacity = '1';
+        input.value = '';
+        input.focus();
+      }
+    };
+
+    window.closeQuickChatPopup = function() {
+      const modal = document.getElementById('quick-chat-modal');
+      if (modal) {
+        modal.style.opacity = '0';
+        setTimeout(() => {
+          modal.style.display = 'none';
+        }, 300);
+      }
+    };
+
+    window.submitQuickChat = function() {
+      const input = document.getElementById('quick-chat-input');
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+
+      const chatInput = document.getElementById('msg-input');
+      if (chatInput) {
+        chatInput.value = text;
+        window.closeQuickChatPopup();
+
+        // Trigger send button click
+        const sendBtn = document.getElementById('send-btn') || document.querySelector('.send-button');
+        if (sendBtn) {
+          sendBtn.click();
+        } else if (typeof sendMessage === 'function') {
+          sendMessage();
+        }
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const quickInput = document.getElementById('quick-chat-input');
+      if (quickInput) {
+        quickInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            window.submitQuickChat();
+          }
+        });
+      }
+    });
+  </script>
 
 </body>
 </html>

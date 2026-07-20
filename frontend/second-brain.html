@@ -1732,6 +1732,23 @@ create policy "Users can read/write their own profiles."
           }
         } catch (e) {}
 
+        let remindersBlock = "";
+        try {
+          const remindersList = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
+          if (remindersList.length > 0) {
+            const sortedReminders = [...remindersList].sort((a, b) => b.time - a.time);
+            remindersBlock = sortedReminders.slice(0, 10).map((r, idx) => {
+              const dateStr = new Date(r.time).toLocaleString();
+              const status = r.fired ? "[TRIGGERED/FIRED]" : "[PENDING/SCHEDULED]";
+              return `- "${r.text}" scheduled for ${dateStr} ${status}`;
+            }).join('\n');
+          } else {
+            remindersBlock = "No reminders currently set on this device.";
+          }
+        } catch (e) {
+          remindersBlock = "No reminders currently set on this device.";
+        }
+
         // Build the system prompt with context, conversational memory directions, and reminders triggering
         const systemPrompt = `You are Second Brain, a personalized AI-powered knowledge system acting as the user's long-term memory layer.
 You reside completely on the user's mobile device.
@@ -1747,8 +1764,8 @@ HUMAN CONVERSATIONAL TONE GUIDELINES:
 
 MANGLISH / ROMANIZED MALAYALAM SUPPORT:
 - The user may converse in "Manglish" (Malayalam words written using the English/Latin alphabet, such as "njan ara" [Who am I?], "poda" [go away / buddy], "i told him but avan cheythila" [I told him but he didn't do it]).
-- You must demonstrate expert capability in understanding, translating, and replying to Manglish/Malayalam/hybrid inputs fluently. 
-- Interpret the user's meaning accurately, maintain conversational context, and respond back in either smooth conversational English, Manglish, or warm Malayalam depending on what feels most natural and helpful in the conversation!
+- You must demonstrate expert capability in understanding, translating, and interpreting Manglish/Malayalam/hybrid inputs perfectly.
+- CRITICAL: To prevent generating broken phonetic gibberish or weird phonetic letters, you should ALWAYS reply in warm, highly natural, friendly English (or standard Malayalam script if specifically asked). Strictly avoid trying to generate Romanized Malayalam (Manglish) responses yourself! Respond in clean, premium conversational English so that it is 100% grammatically correct, highly human, and professional.
 
 CONVERSATION CONTEXT:
 - Maintain a continuous, natural, and helpful conversation with the user.
@@ -1775,7 +1792,11 @@ MEMORY RETRIEVAL CONTEXT:
 Use the following local database context to answer their query accurately when relevant:
 ${contextBlock}
 
-If the query cannot be answered using the retrieved context or conversation history, use your general knowledge but mention that it is not in the local Second Brain notes.`;
+CURRENT ACTIVE REMINDERS SCHEDULED ON THIS DEVICE:
+Use the following list of active reminders currently scheduled on the user's device to answer questions about their reminders (e.g. "what is my last reminder?", "what have you scheduled?", "list my reminders"):
+${remindersBlock}
+
+If the query cannot be answered using the retrieved context, active reminders list, or conversation history, use your general knowledge but mention that it is not in the local Second Brain notes.`;
 
         // Stream from Groq!
         const response = await executeGroqRequest(key => {

@@ -1167,9 +1167,6 @@ create policy "Users can read/write their own profiles."
         request.onsuccess = () => {
           this.nodesCache = request.result || [];
           resolve(this.nodesCache);
-          if (typeof window.syncWidgetReminders === 'function') {
-            window.syncWidgetReminders();
-          }
         };
         request.onerror = () => reject(request.error);
       });
@@ -1192,9 +1189,6 @@ create policy "Users can read/write their own profiles."
             this.nodesCache.push(node);
           }
           resolve();
-          if (typeof window.syncWidgetReminders === 'function') {
-            window.syncWidgetReminders();
-          }
         };
         request.onerror = () => reject(request.error);
       });
@@ -1208,9 +1202,6 @@ create policy "Users can read/write their own profiles."
         request.onsuccess = () => {
           this.nodesCache = this.nodesCache.filter(n => !(n.workspace_id === workspaceId && n.source_id === sourceId));
           resolve();
-          if (typeof window.syncWidgetReminders === 'function') {
-            window.syncWidgetReminders();
-          }
         };
         request.onerror = () => reject(request.error);
       });
@@ -4208,102 +4199,7 @@ If the query cannot be answered using the retrieved context or conversation hist
     return targetDate.getTime();
   }
 
-  window.isAppActive = true;
 
-  window.syncWidgetReminders = function(forceImageSync) {
-    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SecondBrainWidgetPlugin) {
-      const reminders = JSON.parse(localStorage.getItem('sb_reminders') || '[]');
-      const activeReminders = reminders.filter(r => !r.fired).sort((a, b) => a.time - b.time);
-
-      // Fetch actual memory nodes
-      let nodeTitles = [];
-      try {
-        const ws = localStorage.getItem('sb_current_workspace') || 'default';
-        if (window.localDatabase && typeof window.localDatabase.getNodes === 'function') {
-          const nodes = window.localDatabase.getNodes(ws) || [];
-          // Get the titles and cluster groups of the most recent 12 nodes to draw on the graph!
-          nodeTitles = nodes.slice(-12).map(n => {
-            let label = n.source_id || 'NODE';
-            label = label.replace(/\.(json|txt|md|html)$/i, '').toUpperCase();
-            if (label.length > 12) label = label.substring(0, 11) + '..';
-
-            let clusterVal = "0";
-            if (n.cluster_id) clusterVal = String(n.cluster_id);
-            else if (n.clusterId) clusterVal = String(n.clusterId);
-
-            return {
-              label: label,
-              cluster: clusterVal
-            };
-          });
-        }
-      } catch (e) {
-        console.warn("Failed to extract node titles for widget graph:", e);
-      }
-
-      // Capture the actual rendered canvas from the web view with high-perf standardization!
-      let graphImageB64 = "";
-      if (window.isAppActive || forceImageSync) {
-        try {
-          const canvas = document.getElementById('graph-main-canvas');
-          if (canvas) {
-            // Optimize/Standardize canvas to 500x500 with solid black background for ultra-high-definition crispness
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 500;
-            tempCanvas.height = 500;
-            const tempCtx = tempCanvas.getContext('2d');
-            if (tempCtx) {
-              // Paint solid black background
-              tempCtx.fillStyle = "#000000";
-              tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-              
-              // Apply brightness(1.4) filter to make nodes and connectors pop
-              tempCtx.filter = "brightness(1.4)";
-              
-              // Calculate 10% crop bounds to perfectly fit the whole graph with 10% zoom
-              const sw = canvas.width;
-              const sh = canvas.height;
-              const cropW = sw * 0.90;
-              const cropH = sh * 0.90;
-              const sx = (sw - cropW) / 2;
-              const sy = (sh - cropH) / 2;
-
-              // Draw the zoomed-in, 40% brighter central portion of the source canvas onto the 500x500 temp canvas
-              tempCtx.drawImage(canvas, sx, sy, cropW, cropH, 0, 0, tempCanvas.width, tempCanvas.height);
-              graphImageB64 = tempCanvas.toDataURL('image/jpeg', 0.95);
-            } else {
-              graphImageB64 = canvas.toDataURL('image/jpeg', 0.95);
-            }
-          }
-        } catch (e) {
-          console.warn("Failed to capture graph canvas:", e);
-        }
-      }
-
-      const syncPayload = {
-        remindersJson: JSON.stringify(activeReminders),
-        nodesJson: JSON.stringify(nodeTitles)
-      };
-      if (graphImageB64) {
-        syncPayload.graphImageBase64 = graphImageB64;
-      }
-
-      window.Capacitor.Plugins.SecondBrainWidgetPlugin.updateWidget(syncPayload)
-        .catch(err => console.warn("Widget sync error:", err));
-    }
-  };
-
-  // Capture the graph canvas on pause/minimizing so the launcher widget is instantly updated
-  document.addEventListener('pause', () => {
-    window.isAppActive = false;
-    if (typeof window.syncWidgetReminders === 'function') {
-      window.syncWidgetReminders(true); // Force one final clean static snapshot on exit
-    }
-  });
-
-  document.addEventListener('resume', () => {
-    window.isAppActive = true;
-  });
 
   window.scheduleReminderFromTag = function(tagText) {
     const textMatch = tagText.match(/text="([^"]+)"/);
@@ -4414,9 +4310,7 @@ If the query cannot be answered using the retrieved context or conversation hist
     if (typeof fetchCalendar === 'function') {
       fetchCalendar();
     }
-    if (typeof syncWidgetReminders === 'function') {
-      syncWidgetReminders();
-    }
+
   };
 
   let alarmAudioInterval = null;
@@ -4524,18 +4418,11 @@ If the query cannot be answered using the retrieved context or conversation hist
 
       if (updated) {
         localStorage.setItem('sb_reminders', JSON.stringify(reminders));
-        if (typeof syncWidgetReminders === 'function') {
-          syncWidgetReminders();
-        }
       }
     }, 1000);
   }
 
-  // Launch Reminders Loop
   startRemindersLoop();
-  if (typeof syncWidgetReminders === 'function') {
-    syncWidgetReminders();
-  }
 
 
 

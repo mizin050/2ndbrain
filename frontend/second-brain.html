@@ -4674,8 +4674,8 @@ If the query cannot be answered using the retrieved context, active reminders li
 
 
   window.scheduleReminderFromTag = function(tagText) {
-    const textMatch = tagText.match(/text="([^"]+)"/);
-    const delayMatch = tagText.match(/delay="([^"]+)"/);
+    const textMatch = tagText.match(/text=(?:"|')([^'"]+)(?:"|')/i);
+    const delayMatch = tagText.match(/delay=(?:"|')([^'"]+)(?:"|')/i);
     if (!textMatch || !delayMatch) return;
 
     const content = textMatch[1];

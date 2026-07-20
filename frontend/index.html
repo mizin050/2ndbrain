@@ -4244,11 +4244,11 @@ If the query cannot be answered using the retrieved context or conversation hist
               tempCtx.fillStyle = "#000000";
               tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
               
-              // Calculate 10% crop bounds to zoom in the widget by exactly 10%
+              // Calculate 20% crop bounds to zoom in the widget by exactly 20%
               const sw = canvas.width;
               const sh = canvas.height;
-              const cropW = sw * 0.90;
-              const cropH = sh * 0.90;
+              const cropW = sw * 0.80;
+              const cropH = sh * 0.80;
               const sx = (sw - cropW) / 2;
               const sy = (sh - cropH) / 2;
 

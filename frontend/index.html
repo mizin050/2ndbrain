@@ -4740,8 +4740,9 @@ If the query cannot be answered using the retrieved context, active reminders li
     reminders.push(reminder);
     localStorage.setItem('sb_reminders', JSON.stringify(reminders));
 
-    // Dispatch reminder to Capacitor Native LocalNotifications or Service Worker fallback
+    // Dispatch reminder to Capacitor Native LocalNotifications and Service Worker in parallel (Dual-Scheduling Failsafe)
     const scheduleBackgroundNotification = async (title, body, targetTime) => {
+      let nativeScheduled = false;
       if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
         try {
           const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
@@ -4772,13 +4773,14 @@ If the query cannot be answered using the retrieved context, active reminders li
               }]
             });
             console.log("Capacitor Native Local Notification scheduled on 'second_brain_alerts'.");
-            return;
+            nativeScheduled = true;
           }
         } catch (e) {
-          console.warn("Capacitor LocalNotification failed, falling back to Service Worker:", e);
+          console.warn("Capacitor LocalNotification failed:", e);
         }
       }
 
+      // Always parallel-schedule in the Service Worker to guarantee 100% background delivery even if native layers fail
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {
           if (registration.active) {

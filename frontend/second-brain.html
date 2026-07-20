@@ -830,15 +830,10 @@
         <button id="supabase-pull-btn" title="Restore memories from Cloud Database" style="background: rgba(255, 90, 0, 0.08); border: 1px solid var(--orange); color: var(--orange); font-size: 8px; cursor: pointer; padding: 2px 6px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; transition: all 0.2s; flex-shrink: 0;">↓ PULL</button>
 
         <!-- The Floating Cyberpunk Dropdown Menu -->
-        <div id="supabase-dropdown" style="display: none; position: absolute; top: calc(100% + 6px); right: 0; background: rgba(10, 10, 10, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 90, 0, 0.35); box-shadow: 0 4px 16px rgba(255, 90, 0, 0.15); border-radius: 2px; padding: 8px; z-index: 1000; flex-direction: column; gap: 6px; min-width: 150px;">
+        <div id="supabase-dropdown" style="display: none; position: absolute; top: calc(100% + 6px); right: 0; background: rgba(10, 10, 10, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 90, 0, 0.35); box-shadow: 0 4px 16px rgba(255, 90, 0, 0.15); border-radius: 2px; padding: 8px; z-index: 1000; flex-direction: column; gap: 6px; min-width: 140px;">
           <div style="font-family: var(--font-mono); font-size: 7px; color: var(--text-muted); border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 4px; margin-bottom: 2px; letter-spacing: 1px;">// CONTROL PANEL</div>
           <button id="supabase-edit-username-btn" title="Change your username" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.2); color: var(--text); font-size: 8px; cursor: pointer; padding: 4px 8px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; text-align: left; width: 100%; transition: all 0.2s;">✏️ CODENAME</button>
-          
-          <div style="display: flex; flex-direction: column; gap: 3px; margin: 2px 0;">
-            <label style="font-family: var(--font-mono); font-size: 6px; color: var(--orange); letter-spacing: 0.5px; text-transform: uppercase;">GROQ API KEY:</label>
-            <input id="dropdown-groq-key" type="password" placeholder="Paste Groq Key..." style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 90, 0, 0.2); color: var(--text); padding: 4px 6px; font-family: var(--font-mono); font-size: 8px; border-radius: 2px; outline: none; width: 100%; transition: border-color 0.2s;" />
-          </div>
-
+          <button id="supabase-edit-groq-btn" title="Change your Groq API key" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.2); color: var(--text); font-size: 8px; cursor: pointer; padding: 4px 8px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; text-align: left; width: 100%; transition: all 0.2s;">🔑 API KEY</button>
           <button id="supabase-logout-btn" title="Sign Out of Account" style="background: rgba(255, 68, 68, 0.08); border: 1px solid var(--red); color: var(--red); font-size: 8px; cursor: pointer; padding: 4px 8px; border-radius: 2px; font-family: var(--font-mono); font-weight: bold; letter-spacing: 1px; text-align: left; width: 100%; transition: all 0.2s;">⚡ SIGN OUT</button>
         </div>
       </div>
@@ -1123,9 +1118,31 @@ create policy "Users can read/write their own profiles."
     </div>
   </div>
 
+  <!-- ═══ GROQ KEY MODAL ═══ -->
+  <div id="groq-key-modal" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px 10px;">
+    <div style="position:relative;width:400px;max-width:94vw;background:rgba(6,6,6,.98);border:1px solid rgba(255,90,0,.4);box-shadow:0 0 40px rgba(255,90,0,.15);display:flex;flex-direction:column;border-radius:3px;">
+      
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid rgba(255,90,0,.15);background:rgba(255,90,0,.03);">
+        <span style="font-family:var(--font-display);font-size:11px;letter-spacing:2px;color:var(--orange);font-weight:bold;">🔑 UPDATE GROQ API KEY</span>
+      </div>
+
+      <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;">ENTER YOUR GROQ API KEY://</label>
+          <input id="groq-key-input-field" type="password" placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxx" spellcheck="false" autocomplete="off" style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,90,0,.25);color:var(--text);padding:8px 12px;font-family:var(--font-mono);font-size:11px;border-radius:2px;outline:none;" />
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button id="groq-key-cancel-btn" style="background:none;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);font-family:var(--font-mono);font-size:9px;letter-spacing:2px;padding:8px 16px;cursor:pointer;border-radius:2px;transition:all .2s;text-transform:uppercase;">CANCEL</button>
+          <button id="groq-key-confirm-btn" style="background:var(--orange);border:none;color:#000;font-family:var(--font-mono);font-size:9px;font-weight:bold;letter-spacing:2px;padding:8px 16px;cursor:pointer;border-radius:2px;transition:all .2s;text-transform:uppercase;box-shadow:0 0 10px rgba(255,90,0,.15);">CONFIRM</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <style>
     /* Node modal open state */
-    #node-modal.open, #log-modal.open, #supabase-auth-modal.open, #codename-modal.open { display:flex !important; }
+    #node-modal.open, #log-modal.open, #supabase-auth-modal.open, #codename-modal.open, #groq-key-modal.open { display:flex !important; }
     /* node-meta rows */
     .node-meta-row { display:flex; gap:8px; align-items:center; }
     .node-meta-label { font-family:var(--font-mono); font-size:8px; letter-spacing:2px; color:rgba(255,90,0,.6); text-transform:uppercase; }
@@ -3860,12 +3877,16 @@ If the query cannot be answered using the retrieved context or conversation hist
   const codenameCancel    = document.getElementById('codename-cancel-btn');
   const codenameConfirm   = document.getElementById('codename-confirm-btn');
 
-  const dropdownGroqInput = document.getElementById('dropdown-groq-key');
+  const editGroqBtn      = document.getElementById('supabase-edit-groq-btn');
+  const groqKeyModal     = document.getElementById('groq-key-modal');
+  const groqKeyInput     = document.getElementById('groq-key-input-field');
+  const groqKeyCancel    = document.getElementById('groq-key-cancel-btn');
+  const groqKeyConfirm   = document.getElementById('groq-key-confirm-btn');
 
   function populateGroqKeysFromStorage() {
     const key = (localStorage.getItem('sb_groq_key') || '').trim();
     if (sbGroqInput) sbGroqInput.value = key;
-    if (dropdownGroqInput) dropdownGroqInput.value = key;
+    if (groqKeyInput) groqKeyInput.value = key;
   }
 
   function updateSubmitButtonText() {
@@ -3922,18 +3943,83 @@ If the query cannot be answered using the retrieved context or conversation hist
   sbUrlInput.addEventListener('input', updateSubmitButtonText);
   keyInput.addEventListener('input', updateSubmitButtonText);
 
-  if (dropdownGroqInput) {
-    dropdownGroqInput.addEventListener('input', () => {
-      const val = dropdownGroqInput.value.trim();
-      localStorage.setItem('sb_groq_key', val);
-      if (sbGroqInput) sbGroqInput.value = val;
+  // Open Groq Key modal from dropdown button
+  if (editGroqBtn) {
+    editGroqBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      supabaseDropdown.style.display = 'none';
+      const currentKey = localStorage.getItem('sb_groq_key') || '';
+      if (groqKeyInput) groqKeyInput.value = currentKey;
+      if (groqKeyModal) {
+        groqKeyModal.classList.add('open');
+        setTimeout(() => groqKeyInput.focus(), 100);
+      }
     });
   }
+
+  // Cancel Groq Key Modal
+  if (groqKeyCancel) {
+    groqKeyCancel.addEventListener('click', () => {
+      if (groqKeyModal) groqKeyModal.classList.remove('open');
+    });
+  }
+
+  // Backdrop click closes Groq Key Modal
+  if (groqKeyModal) {
+    groqKeyModal.addEventListener('click', e => {
+      if (e.target === groqKeyModal) groqKeyModal.classList.remove('open');
+    });
+  }
+
+  // Update Groq Key logic
+  async function handleGroqKeyUpdate() {
+    const rawVal = (groqKeyInput ? groqKeyInput.value.trim() : '');
+    if (!rawVal) {
+      showToast("Please enter your Groq API Key.", true);
+      return;
+    }
+    localStorage.setItem('sb_groq_key', rawVal);
+    if (sbGroqInput) sbGroqInput.value = rawVal;
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { data: { user } } = await client.auth.getUser();
+        if (user) {
+          showToast("SYNCING GROQ KEY TO CLOUD…");
+          await client.from('second_brain_profiles').upsert({
+            id: user.id,
+            groq_key: rawVal,
+            updated_at: new Date().toISOString()
+          });
+          showToast("✓ GROQ KEY SYNCED TO CLOUD PROFILE!");
+        }
+      } catch (e) {
+        console.warn("Cloud sync warning:", e);
+      }
+    } else {
+      showToast("✓ GROQ API KEY SAVED LOCALLY!");
+    }
+
+    if (groqKeyModal) groqKeyModal.classList.remove('open');
+  }
+
+  if (groqKeyConfirm) {
+    groqKeyConfirm.addEventListener('click', handleGroqKeyUpdate);
+  }
+  if (groqKeyInput) {
+    groqKeyInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        handleGroqKeyUpdate();
+      }
+    });
+  }
+
   if (sbGroqInput) {
     sbGroqInput.addEventListener('input', () => {
       const val = sbGroqInput.value.trim();
       localStorage.setItem('sb_groq_key', val);
-      if (dropdownGroqInput) dropdownGroqInput.value = val;
+      if (groqKeyInput) groqKeyInput.value = val;
     });
   }
 

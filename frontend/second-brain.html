@@ -1116,7 +1116,57 @@ create policy "Users can read/write their own profiles."
 
   <script>
   document.addEventListener('DOMContentLoaded', async function() {
-  
+  // Helper to execute Groq requests with automatic multi-key failover and rate limit protection
+  async function executeGroqRequest(fetchCallback) {
+    const raw = localStorage.getItem('sb_groq_key') || '';
+    const keys = raw.split(/[\s,;]+/).map(k => k.trim()).filter(Boolean);
+    if (keys.length === 0) {
+      throw new Error("Missing Groq API Key! Please configure your Groq key in the portal first.");
+    }
+    
+    let lastError = null;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      try {
+        const response = await fetchCallback(key);
+        
+        // Handle rate limit failover
+        if (response.status === 429) {
+          console.warn(`Groq API key ${i+1}/${keys.length} rate limited (HTTP 429). Attempting automatic failover to the next key...`);
+          lastError = new Error(`Rate limit exceeded (HTTP 429).`);
+          if (typeof showToast === 'function') {
+            showToast(`API Key ${i+1} limited (429). Rotating key...`);
+          }
+          continue;
+        }
+        
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const errMsg = errData.error?.message || `HTTP ${response.status}`;
+          
+          if (response.status === 400 && (errMsg.includes('rate') || errMsg.includes('limit') || errMsg.includes('exhausted') || errMsg.includes('quota'))) {
+            console.warn(`Groq API key ${i+1}/${keys.length} limits exceeded: ${errMsg}. Attempting automatic failover to the next key...`);
+            lastError = new Error(errMsg);
+            if (typeof showToast === 'function') {
+              showToast(`API Key ${i+1} limits exceeded. Rotating key...`);
+            }
+            continue;
+          }
+          throw new Error(errMsg);
+        }
+        
+        return response;
+      } catch (err) {
+        lastError = err;
+        if (i < keys.length - 1) {
+          console.warn(`Key ${i+1} failed, rotating... Error:`, err.message);
+          continue;
+        }
+      }
+    }
+    throw lastError || new Error("All Groq API keys failed to execute.");
+  }
+
   /* ══════════════════════════════════════════════════════════════════
      LOCAL VECTOR DATABASE & CONFIG (COMPLETELY LOCAL PWA MODE)
   ══════════════════════════════════════════════════════════════════ */
@@ -1710,27 +1760,24 @@ ${contextBlock}
 If the query cannot be answered using the retrieved context or conversation history, use your general knowledge but mention that it is not in the local Second Brain notes.`;
 
         // Stream from Groq!
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              ...chatHistory.slice(-10).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content }))
-            ],
-            temperature: 0.3,
-            stream: true
-          })
+        const response = await executeGroqRequest(key => {
+          return fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${key}`
+            },
+            body: JSON.stringify({
+              model: 'llama-3.1-8b-instant',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...chatHistory.slice(-10).map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content }))
+              ],
+              temperature: 0.3,
+              stream: true
+            })
+          });
         });
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error?.message || `HTTP status ${response.status}`);
-        }
 
         typingInd.classList.remove('visible');
         
@@ -3377,18 +3424,15 @@ If the query cannot be answered using the retrieved context or conversation hist
             formData.append('file', audioBlob, 'recording.webm');
             formData.append('model', 'whisper-large-v3');
 
-            const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('sb_groq_key')}`
-              },
-              body: formData
+            const response = await executeGroqRequest(key => {
+              return fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${key}`
+                },
+                body: formData
+              });
             });
-
-            if (!response.ok) {
-              const errData = await response.json();
-              throw new Error(errData.error?.message || `HTTP ${response.status}`);
-            }
 
             const resData = await response.json();
             transcribedText = resData.text || '';
@@ -3606,29 +3650,23 @@ If the query cannot be answered using the retrieved context or conversation hist
 
       // Ask the local AI for a 10-word summary of this specific document
       async function callGroqAPI(prompt, systemMsg = "You are a precise, helpful AI assistant.") {
-        const apiKey = localStorage.getItem('sb_groq_key') || '';
-        if (!apiKey) {
-          throw new Error("Missing Groq API Key in the header!");
-        }
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [
-              { role: 'system', content: systemMsg },
-              { role: 'user', content: prompt }
-            ],
-            temperature: 0.2
-          })
+        const res = await executeGroqRequest(key => {
+          return fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${key}`
+            },
+            body: JSON.stringify({
+              model: 'llama-3.1-8b-instant',
+              messages: [
+                { role: 'system', content: systemMsg },
+                { role: 'user', content: prompt }
+              ],
+              temperature: 0.2
+            })
+          });
         });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error?.message || `HTTP ${res.status}`);
-        }
         const data = await res.json();
         return data.choices[0]?.message?.content?.trim() || '';
       }

@@ -83,11 +83,11 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
 
         // 1. Draw subtle sci-fi grid dots (with high transparency)
         Paint gridPaint = new Paint();
-        gridPaint.setColor(Color.parseColor("#15FF5E00"));
+        gridPaint.setColor(Color.parseColor("#0FFF5E00"));
         gridPaint.setStyle(Paint.Style.FILL);
-        for (int i = 40; i < CANVAS_SIZE; i += 50) {
-            for (int j = 40; j < CANVAS_SIZE; j += 50) {
-                canvas.drawCircle(i, j, 1.5f, gridPaint);
+        for (int i = 30; i < CANVAS_SIZE; i += 45) {
+            for (int j = 30; j < CANVAS_SIZE; j += 45) {
+                canvas.drawCircle(i, j, 1.2f, gridPaint);
             }
         }
 
@@ -122,26 +122,36 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
         
         float centerX = CANVAS_SIZE / 2f;
         float centerY = CANVAS_SIZE / 2f;
-        // Adjust spacing based on node count
-        float radius = count > 10 ? 120f : 100f;
+        
+        // Compact radius to ensure 100% visibility (no boundary clipping!)
+        float orbitRadius = 80f;
 
         for (int i = 0; i < count; i++) {
             double angle = (2 * Math.PI * i) / count;
-            float baseX = centerX + (float) (Math.cos(angle) * radius);
-            float baseY = centerY + (float) (Math.sin(angle) * radius);
+            float baseX = centerX + (float) (Math.cos(angle) * orbitRadius);
+            float baseY = centerY + (float) (Math.sin(angle) * orbitRadius);
 
-            // Floating wave-like movements
-            float driftX = (float) Math.sin((time * 0.0008) + (i * 1.5)) * 25f;
-            float driftY = (float) Math.cos((time * 0.0006) + (i * 2.1)) * 25f;
+            // Floating wave-like movements (kept inside safe bounds)
+            float driftX = (float) Math.sin((time * 0.0008) + (i * 1.5)) * 18f;
+            float driftY = (float) Math.cos((time * 0.0006) + (i * 2.1)) * 18f;
 
             nodes[i][0] = baseX + driftX;
             nodes[i][1] = baseY + driftY;
         }
 
-        // 3. Draw connecting lines between close neighbors
+        // 3. Draw core connections (lines from central core "YOU" to satellites)
+        Paint coreLinePaint = new Paint();
+        coreLinePaint.setColor(Color.parseColor("#20FF5E00"));
+        coreLinePaint.setStrokeWidth(1.5f);
+        coreLinePaint.setAntiAlias(true);
+        for (int i = 0; i < count; i++) {
+            canvas.drawLine(centerX, centerY, nodes[i][0], nodes[i][1], coreLinePaint);
+        }
+
+        // 4. Draw satellite-to-satellite connecting lines (for inter-node similarity!)
         Paint linePaint = new Paint();
-        linePaint.setColor(Color.parseColor("#44FF5E00"));
-        linePaint.setStrokeWidth(2.0f);
+        linePaint.setColor(Color.parseColor("#15FF5E00"));
+        linePaint.setStrokeWidth(1.2f);
         linePaint.setAntiAlias(true);
 
         for (int i = 0; i < count; i++) {
@@ -150,40 +160,56 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
                 float dy = nodes[i][1] - nodes[j][1];
                 float dist = (float) Math.sqrt(dx * dx + dy * dy);
 
-                if (dist < 160f) {
-                    float alphaRatio = 1.0f - (dist / 160f);
-                    linePaint.setAlpha((int) (alphaRatio * 110));
+                if (dist < 110f) {
+                    float alphaRatio = 1.0f - (dist / 110f);
+                    linePaint.setAlpha((int) (alphaRatio * 70));
                     canvas.drawLine(nodes[i][0], nodes[i][1], nodes[j][0], nodes[j][1], linePaint);
                 }
             }
         }
 
-        // 4. Draw glowing nodes & actual synced labels
+        // 5. Draw glowing satellite nodes & actual synced labels
         Paint nodePaint = new Paint();
         nodePaint.setAntiAlias(true);
         nodePaint.setStyle(Paint.Style.FILL);
 
         Paint textPaint = new Paint();
-        textPaint.setColor(Color.parseColor("#CCCCCC"));
+        textPaint.setColor(Color.parseColor("#FFAA66")); // Warm highly legible label color
         textPaint.setTextSize(9f);
         textPaint.setAntiAlias(true);
         textPaint.setStyle(Paint.Style.FILL);
         textPaint.setTextAlign(Paint.Align.CENTER);
 
         for (int i = 0; i < count; i++) {
-            nodePaint.setColor(Color.parseColor("#33FF5E00")); // glow
-            canvas.drawCircle(nodes[i][0], nodes[i][1], 10f, nodePaint);
+            nodePaint.setColor(Color.parseColor("#22FF5E00")); // glow ring
+            canvas.drawCircle(nodes[i][0], nodes[i][1], 9f, nodePaint);
 
-            nodePaint.setColor(Color.parseColor("#FF5E00")); // core
-            canvas.drawCircle(nodes[i][0], nodes[i][1], 4f, nodePaint);
+            nodePaint.setColor(Color.parseColor("#FF5E00")); // core dot
+            canvas.drawCircle(nodes[i][0], nodes[i][1], 3.5f, nodePaint);
 
-            // Render their actual notes labels in space
-            canvas.drawText(labelsList.get(i), nodes[i][0], nodes[i][1] - 10f, textPaint);
+            // Render actual node labels directly in space next to the nodes
+            canvas.drawText(labelsList.get(i), nodes[i][0], nodes[i][1] - 9f, textPaint);
         }
+
+        // 6. Draw central CORE Node ("YOU" / "2ND BRAIN" just like in-app!)
+        nodePaint.setColor(Color.parseColor("#40FF5E00")); // Glowing core halo
+        canvas.drawCircle(centerX, centerY, 18f, nodePaint);
+        
+        nodePaint.setColor(Color.parseColor("#FF5E00")); // Solid core dot
+        canvas.drawCircle(centerX, centerY, 7f, nodePaint);
+
+        Paint coreTextPaint = new Paint();
+        coreTextPaint.setColor(Color.parseColor("#FFFFFF"));
+        coreTextPaint.setTextSize(8f);
+        coreTextPaint.setFakeBoldText(true);
+        coreTextPaint.setAntiAlias(true);
+        coreTextPaint.setTextAlign(Paint.Align.CENTER);
+        // Center text perfectly inside the core node
+        canvas.drawText("YOU", centerX, centerY + 3.2f, coreTextPaint);
 
         views.setImageViewBitmap(R.id.graph_image, bitmap);
 
-        // 5. Normal launch intent to open the main app like standard tapping
+        // 7. Normal launch intent to open the main app like standard tapping
         Intent clickIntent = new Intent(context, MainActivity.class);
         clickIntent.setAction(Intent.ACTION_MAIN);
         clickIntent.addCategory(Intent.CATEGORY_LAUNCHER);

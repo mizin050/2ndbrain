@@ -1992,7 +1992,13 @@ If the query cannot be answered using the retrieved context or conversation hist
     cx = W / 2; cy = H / 2 - 10;
   }
   resize();
-  window.addEventListener('resize', () => { resize(); drawStars(); });
+  window.addEventListener('resize', () => {
+    resize();
+    drawStars();
+    if (typeof window.triggerNeuralSettle === 'function') {
+      window.triggerNeuralSettle();
+    }
+  });
 
   const stars = Array.from({length:80}, () => ({ x:Math.random()*3000, y:Math.random()*900, r:Math.random()*1.1+.2, a:Math.random()*.35+.08 }));
   function drawStars() {

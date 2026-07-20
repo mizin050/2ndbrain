@@ -3,7 +3,6 @@ package com.secondbrain.app;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetProvider;
 import android.appwidget.AppWidgetManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -11,8 +10,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.os.Handler;
-import android.os.Looper;
 import android.widget.RemoteViews;
 import org.json.JSONArray;
 import java.util.ArrayList;
@@ -20,55 +17,11 @@ import java.util.ArrayList;
 public class SecondBrainGraphWidget extends AppWidgetProvider {
 
     private static final int CANVAS_SIZE = 400;
-    private static Handler animationHandler;
-    private static Runnable animationRunnable;
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         for (int appWidgetId : appWidgetIds) {
             updateGraphWidget(context, appWidgetManager, appWidgetId);
-        }
-        startAnimationLoop(context);
-    }
-
-    @Override
-    public void onEnabled(Context context) {
-        super.onEnabled(context);
-        startAnimationLoop(context);
-    }
-
-    @Override
-    public void onDisabled(Context context) {
-        super.onDisabled(context);
-        stopAnimationLoop();
-    }
-
-    private static void startAnimationLoop(final Context context) {
-        if (animationHandler == null) {
-            animationHandler = new Handler(Looper.getMainLooper());
-        }
-        if (animationRunnable == null) {
-            animationRunnable = new Runnable() {
-                @Override
-                public void run() {
-                    Context appContext = context.getApplicationContext();
-                    AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(appContext);
-                    int[] appWidgetIds = appWidgetManager.getAppWidgetIds(new ComponentName(appContext, SecondBrainGraphWidget.class));
-                    
-                    for (int appWidgetId : appWidgetIds) {
-                        updateGraphWidget(appContext, appWidgetManager, appWidgetId);
-                    }
-                    animationHandler.postDelayed(this, 1500);
-                }
-            };
-            animationHandler.postDelayed(animationRunnable, 1500);
-        }
-    }
-
-    private static void stopAnimationLoop() {
-        if (animationHandler != null && animationRunnable != null) {
-            animationHandler.removeCallbacks(animationRunnable);
-            animationRunnable = null;
         }
     }
 
@@ -78,8 +31,6 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
         // Draw the dynamic floating constellation bitmap
         Bitmap bitmap = Bitmap.createBitmap(CANVAS_SIZE, CANVAS_SIZE, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
-        
-        long time = System.currentTimeMillis();
 
         // 1. Draw subtle sci-fi grid dots (with high transparency)
         Paint gridPaint = new Paint();
@@ -128,15 +79,16 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
 
         for (int i = 0; i < count; i++) {
             double angle = (2 * Math.PI * i) / count;
+            
+            // Render a structured, organic-looking balanced distribution
+            // No rapid time-based drifting to prevent slideshow flipping effect!
             float baseX = centerX + (float) (Math.cos(angle) * orbitRadius);
             float baseY = centerY + (float) (Math.sin(angle) * orbitRadius);
 
-            // Floating wave-like movements (kept inside safe bounds)
-            float driftX = (float) Math.sin((time * 0.0008) + (i * 1.5)) * 18f;
-            float driftY = (float) Math.cos((time * 0.0006) + (i * 2.1)) * 18f;
-
-            nodes[i][0] = baseX + driftX;
-            nodes[i][1] = baseY + driftY;
+            // Add slight static organic offset based on label length to make it look like a natural layout
+            float offset = (labelsList.get(i).length() * 2.5f) - 10f;
+            nodes[i][0] = baseX + (float) Math.sin(i * 1.8) * offset;
+            nodes[i][1] = baseY + (float) Math.cos(i * 1.2) * offset;
         }
 
         // 3. Draw core connections (lines from central core "YOU" to satellites)
@@ -175,7 +127,7 @@ public class SecondBrainGraphWidget extends AppWidgetProvider {
 
         Paint textPaint = new Paint();
         textPaint.setColor(Color.parseColor("#FFAA66")); // Warm highly legible label color
-        textPaint.setTextSize(9f);
+        textPaint.setTextSize(9.5f);
         textPaint.setAntiAlias(true);
         textPaint.setStyle(Paint.Style.FILL);
         textPaint.setTextAlign(Paint.Align.CENTER);

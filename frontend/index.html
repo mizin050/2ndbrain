@@ -4800,6 +4800,21 @@ If the query cannot be answered using the retrieved context, active reminders li
         }
       }
 
+      // Automatically register a hard physical alarm in the phone's native Clock App as an indestructible fallback
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SystemAlarm) {
+        try {
+          const delayMs = targetTime - Date.now();
+          const delayMinutes = Math.max(1, Math.round(delayMs / 60000));
+          await window.Capacitor.Plugins.SystemAlarm.setAlarm({
+            delayMinutes: delayMinutes,
+            message: body.toUpperCase()
+          });
+          console.log("[Capacitor] Native system alarm registered in Clock app.");
+        } catch (e) {
+          console.warn("[Capacitor] System Clock Alarm failed:", e);
+        }
+      }
+
       // Always parallel-schedule in the Service Worker to guarantee 100% background delivery even if native layers fail
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {

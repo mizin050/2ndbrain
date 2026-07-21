@@ -4787,8 +4787,7 @@ If the query cannot be answered using the retrieved context, active reminders li
                 id: Math.floor(Math.random() * 1000000),
                 channelId: 'second_brain_alerts',
                 schedule: { 
-                  at: new Date(Date.now() + Math.max(0, delayMs)),
-                  allowWhileIdle: true
+                  at: new Date(Date.now() + Math.max(0, delayMs))
                 }
               }]
             });

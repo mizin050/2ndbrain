@@ -4999,78 +4999,100 @@ If the query cannot be answered using the retrieved context, active reminders li
   /* ══════════════════════════════════════════════════════════════════
      CENTRAL CHAT MEMORY GENERATOR & VECTOR INDEXER (STRUCTURED JSON)
   ══════════════════════════════════════════════════════════════════ */
+  let pendingChatTurns = [];
+  let chatSaveDebounceTimeout = null;
+
   async function saveChatTurnToDatabaseNode(userText, assistantText) {
-    try {
-      const ws = getWorkspace();
-      const sourceId = 'chat_memory_log.json';
-      
-      // 1. Fetch any existing Chat Memory node from the current workspace
-      const nodes = window.localDatabase.getNodes(ws);
-      let existingNode = nodes.find(n => n.source_id === sourceId);
-      
-      let chatArray = [];
-      if (existingNode) {
-        try {
-          chatArray = JSON.parse(existingNode.text);
-          if (!Array.isArray(chatArray)) chatArray = [];
-        } catch (e) {
-          chatArray = [];
-        }
-      }
-      
-      // Append the new conversational turn as structured objects
-      const timestamp = new Date().toISOString();
-      chatArray.push({
-        timestamp: timestamp,
-        role: "user",
-        message: userText
-      });
-      chatArray.push({
-        timestamp: timestamp,
-        role: "assistant",
-        message: assistantText
-      });
-      
-      // Serialize the updated JSON array with clean formatting
-      const currentText = JSON.stringify(chatArray, null, 2);
-      
-      // 2. Chunks generation
-      const chunks = chunkText(currentText);
-      
-      // 3. Compute Embeddings on-device in responsive batches
-      const embeddings = await getEmbeddingsBatch(chunks);
-      
-      // 4. Formulate the central memory document
-      const node = {
-        workspace_id: ws,
-        source_id: sourceId,
-        source_type: 'json',
-        text: currentText,
-        chunks: chunks,
-        embeddings: embeddings,
-        priority: 2, // High importance
-        cluster_id: 2, // Distinct visual styling
-        cluster_name: 'Chat Memories',
-        dates: extractDatesFromText(currentText),
-        timestamp: new Date().toISOString()
-      };
-      
-      // 5. Store locally into IndexedDB
-      await window.localDatabase.saveNode(node);
-      
-      // Clean up the old leftover text node if it exists
-      try {
-        await window.localDatabase.deleteNode(ws, 'chat_memory_log.txt');
-      } catch (e) {}
-      
-      // 6. Instantly redraw the visual neural graph map to show the live growing chat log
-      if (typeof restoreGraphNodes === 'function') {
-        restoreGraphNodes();
-      }
-      console.log("💾 Conversational turn successfully synced into central 'chat_memory_log.json' database node!");
-    } catch (e) {
-      console.warn("Failed to update central chat memory node:", e);
+    // 1. Instantly store the text in our temporary pending turns queue
+    pendingChatTurns.push({
+      timestamp: new Date().toISOString(),
+      userText,
+      assistantText
+    });
+
+    // 2. Clear any active timer so we reset the 5-second countdown
+    if (chatSaveDebounceTimeout) {
+      clearTimeout(chatSaveDebounceTimeout);
     }
+
+    // 3. Start a new 5-second countdown. If the user doesn't chat for 5s, we do the heavy embedding in one batch!
+    chatSaveDebounceTimeout = setTimeout(async () => {
+      const turnsToProcess = [...pendingChatTurns];
+      pendingChatTurns = []; // Clear the queue so subsequent chats start a new batch
+      
+      try {
+        const ws = getWorkspace();
+        const sourceId = 'chat_memory_log.json';
+        
+        // Fetch any existing Chat Memory node from the current workspace
+        const nodes = window.localDatabase.getNodes(ws);
+        let existingNode = nodes.find(n => n.source_id === sourceId);
+        
+        let chatArray = [];
+        if (existingNode) {
+          try {
+            chatArray = JSON.parse(existingNode.text);
+            if (!Array.isArray(chatArray)) chatArray = [];
+          } catch (e) {
+            chatArray = [];
+          }
+        }
+        
+        // Append all the conversational turns we debounced
+        turnsToProcess.forEach(turn => {
+          chatArray.push({
+            timestamp: turn.timestamp,
+            role: "user",
+            message: turn.userText
+          });
+          chatArray.push({
+            timestamp: turn.timestamp,
+            role: "assistant",
+            message: turn.assistantText
+          });
+        });
+        
+        // Serialize the updated JSON array
+        const currentText = JSON.stringify(chatArray, null, 2);
+        
+        // Chunks generation
+        const chunks = chunkText(currentText);
+        
+        // Compute Embeddings on-device in responsive batches
+        const embeddings = await getEmbeddingsBatch(chunks);
+        
+        // Formulate the central memory document
+        const node = {
+          workspace_id: ws,
+          source_id: sourceId,
+          source_type: 'json',
+          text: currentText,
+          chunks: chunks,
+          embeddings: embeddings,
+          priority: 2, // High importance
+          cluster_id: 2, // Distinct visual styling
+          cluster_name: 'Chat Memories',
+          dates: extractDatesFromText(currentText),
+          timestamp: new Date().toISOString()
+        };
+        
+        // Store locally into IndexedDB
+        await window.localDatabase.saveNode(node);
+        
+        // Clean up the old leftover text node if it exists
+        try {
+          await window.localDatabase.deleteNode(ws, 'chat_memory_log.txt');
+        } catch (e) {}
+        
+        // Instantly redraw the visual neural graph map to show the live growing chat log
+        if (typeof restoreGraphNodes === 'function') {
+          restoreGraphNodes();
+        }
+        console.log("💾 Conversational turns successfully synced into central 'chat_memory_log.json' database node!");
+      } catch (err) {
+        console.warn("Failed to update central chat memory node:", err);
+      }
+    }, 5000);
   }
 
   }); // DOMContentLoaded

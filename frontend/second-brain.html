@@ -1938,8 +1938,8 @@ If the query cannot be answered using the retrieved context, active reminders li
         // Add final streamed response to chat history
         chatHistory.push({ role: 'assistant', content: cleanedResponseText });
 
-        // Update/Sync the central Chat Memory Node in the database
-        await saveChatTurnToDatabaseNode(text, cleanedResponseText);
+        // Update/Sync the central Chat Memory Node in the background (prevent UI freeze)
+        saveChatTurnToDatabaseNode(text, cleanedResponseText).catch(e => console.warn("Failed to save chat memory node in background:", e));
       }
 
     } catch (err) {

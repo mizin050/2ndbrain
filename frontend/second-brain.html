@@ -4524,6 +4524,26 @@ If the query cannot be answered using the retrieved context, active reminders li
     });
   }
 
+  /* ═══ CAPACITOR INITIALIZE PERMISSIONS ═══ */
+  async function initializeCapacitorPermissions() {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+      try {
+        const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+        const status = await LocalNotifications.checkPermissions();
+        if (status.display !== 'granted') {
+          console.log("[Capacitor] Requesting native local notification permissions...");
+          const res = await LocalNotifications.requestPermissions();
+          console.log("[Capacitor] Permission request result:", res.display);
+        } else {
+          console.log("[Capacitor] Native local notification permissions already granted.");
+        }
+      } catch (e) {
+        console.warn("[Capacitor] Failed to initialize permissions:", e);
+      }
+    }
+  }
+  initializeCapacitorPermissions();
+
   /* ══════════════════════════════════════════════════════════════════
      CYBERPUNK REMINDERS ENGINE (WITH WEB AUDIO SYNTH & SYSTEM NOTIFICATIONS)
   ══════════════════════════════════════════════════════════════════ */
